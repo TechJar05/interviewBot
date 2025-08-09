@@ -1,0 +1,11 @@
+@import "tailwindcss";
+body {
+  margin: 0;           /* ✅ removes white space above header */
+  padding: 0;
+  background-color:#555b5b; /* set background color as per Figma */
+  font-family: 'Inter', sans-serif;
+  color: #DFD0B8;
+}
+.vapi-container {
+  display: none !important;
+}
