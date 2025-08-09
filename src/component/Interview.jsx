@@ -9,12 +9,12 @@ const InterviewBot = () => {
   const streamRef = useRef(null);
 
   const config = {
-    assistantId: "54975cfa-ea7b-4e5e-81a5-a7f9589dc34c",
-    apiKey: "3c1f4481-75ae-4ebc-b9b9-e436b387859d",
-    buttonConfig: {
-      show: false,
-    },
-  };
+  assistantId: import.meta.env.VITE_ASSISTANT_ID,
+  apiKey: import.meta.env.VITE_API_KEY,
+  buttonConfig: {
+    show: false,
+  },
+};
 
   useEffect(() => {
     const script = document.createElement("script");
