@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import axios from "axios";
+import { FaBuilding, FaBriefcase, FaEnvelope } from "react-icons/fa";
 
 const Setup = () => {
   const videoRef = useRef(null);
@@ -66,15 +68,20 @@ const Setup = () => {
     return () => {
       mounted = false;
       // stop any active tracks
-      const s = streamRef.current || (videoRef.current && videoRef.current.srcObject);
+      const s =
+        streamRef.current || (videoRef.current && videoRef.current.srcObject);
       if (s && s.getTracks) {
         s.getTracks().forEach((track) => {
-          try { track.stop(); } catch (_) {}
+          try {
+            track.stop();
+          } catch (_) {}
         });
       }
       // remove srcObject to help garbage collection
       if (videoRef.current) {
-        try { videoRef.current.srcObject = null; } catch (_) {}
+        try {
+          videoRef.current.srcObject = null;
+        } catch (_) {}
       }
     };
   }, []);
@@ -127,7 +134,8 @@ const Setup = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fdfcfb] via-[#e2d1c3] to-[#d4ccab] flex items-center justify-center px-6 py-10 relative overflow-hidden">
+    // <div className="min-h-screen bg-gradient-to-br from-[#fdfcfb] via-[#e2d1c3] to-[#d4ccab] flex items-center justify-center px-6 py-10 relative overflow-hidden">
+    <div className="min-h-screen bg-white flex items-center justify-center px-6 py-10 relative overflow-hidden">
       {loadingStep > 1 && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 pointer-events-none">
           <div className="text-white text-lg animate-pulse flex items-center gap-3 px-6 text-center">
@@ -172,7 +180,7 @@ const Setup = () => {
                     "🎧 Use headphones for clear audio.",
                     "🔇 Find a quiet environment.",
                     "💡 Sit in a well-lit space.",
-                    "📶 Ensure stable internet connection."
+                    "📶 Ensure stable internet connection.",
                   ].map((tip, idx) => (
                     <motion.li
                       key={idx}
@@ -190,15 +198,16 @@ const Setup = () => {
               {/* Candidate Details */}
               <div className="mt-6 space-y-2 text-sm leading-relaxed">
                 <p className="flex items-center gap-2">
-                  <i className="fas fa-building text-[#00adb5] font-extrabold" />
-                  <strong>Organization:</strong> {interviewData?.organization_name}
+                  <FaBuilding className="text-[#5E4AE3] font-extrabold" />
+                  <strong>Organization:</strong>{" "}
+                  {interviewData?.organization_name}
                 </p>
                 <p className="flex items-center gap-2">
-                  <i className="fas fa-briefcase text-[#5E4AE3]" />
+                  <FaBriefcase className="text-[#5E4AE3]" />
                   <strong>Job Title:</strong> {interviewData?.job_title}
                 </p>
                 <p className="flex items-center gap-2">
-                  <i className="fas fa-envelope text-[#5E4AE3]" />
+                  <FaEnvelope className="text-[#5E4AE3]" />
                   <strong>Email:</strong> {interviewData?.email}
                 </p>
               </div>
@@ -206,7 +215,10 @@ const Setup = () => {
 
             {/* Start Button */}
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: "0 0 15px rgba(94, 74, 227, 0.6)" }}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0 0 15px rgba(94, 74, 227, 0.6)",
+              }}
               whileTap={{ scale: 0.97 }}
               onClick={handleStart}
               disabled={loading}
