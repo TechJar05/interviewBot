@@ -91,7 +91,7 @@ const Setup = () => {
     const fetchInterviewData = async () => {
       try {
         const resumeJdRes = await axios.get(
-          `https://interviewbot-backendv1.onrender.com/interview/resume/20`,
+          `https://interviewbot-backendv1.onrender.com/interview/resume/41`,
           { withCredentials: true }
         );
         setInterviewData(resumeJdRes.data);
@@ -177,6 +177,7 @@ const Setup = () => {
                 </h3>
                 <ul className="space-y-2 text-gray-700">
                   {[
+                    "⏳ The Interview will last for 10 minutes.",
                     "🎧 Use headphones for clear audio.",
                     "🔇 Find a quiet environment.",
                     "💡 Sit in a well-lit space.",

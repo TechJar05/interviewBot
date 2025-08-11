@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 const Header = () => {
   return (
-    <header className="w-full bg-[#00adb5] border-b border-[#000000] shadow-md px-6 py-4">
+    <header className="w-full bg-[#00adb5]  shadow-md px-6 py-4">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -27,7 +27,7 @@ const Header = () => {
             <span className="font-extrabold text-3xl">NEX AI</span>{" "}
             <span className="text-2xl font-medium">Interview Assistant</span>
           </h1>
-          <p className="text-sm text-white mt-1 hidden sm:block font-[Inter]">
+          <p className="text-sm text-white mt-1 hidden sm:block font-[sans-serif]">
             Your smart companion for automated interviews
           </p>
         </div>

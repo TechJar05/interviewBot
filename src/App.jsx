@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Setup from './pages/SetUp';
-import Header from './component/header';
+import Header from './component/Header';
 import InterviewBot from './component/interview';
-import Report from './pages/Report';
+// import Report from './pages/Report';
 
 function Layout() {
   const location = useLocation();
@@ -16,7 +16,7 @@ function Layout() {
       <Routes>
         <Route path="/" element={<Setup />} />
         <Route path="/interview" element={<InterviewBot />} />
-        <Route path="/report/:callId" element={<Report />} />
+        {/* <Route path="/report/:callId" element={<Report />} /> */}
       </Routes>
     </>
   );
