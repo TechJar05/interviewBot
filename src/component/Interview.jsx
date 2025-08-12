@@ -1,11 +1,17 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import botImage from "../assets/botImage.png"; // small DP for assistant bubbles
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+
 
 const InterviewBot = () => {
   const [vapiInstance, setVapiInstance] = useState(null);
   const [status, setStatus] = useState(""); // "Interview in progress..." / "Interview completed"
   const [isInterviewing, setIsInterviewing] = useState(false);
+  const [buttonTitle, setButtonTitle] = useState("Start Interview");  
+  const navigate = useNavigate();
+// Default title
 
   // Live & final transcripts
   const [assistantLive, setAssistantLive] = useState("");
@@ -20,20 +26,23 @@ const InterviewBot = () => {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const chatRef = useRef(null);       // auto-scroll chat container
-  const wsRef = useRef(null);         // monitor websocket fallback
+  const chatRef = useRef(null); // auto-scroll chat container
+  const wsRef = useRef(null); // monitor websocket fallback
+
+  // State to hold dynamically fetched assistantId
+  const [assistantId, setAssistantId] = useState("");
 
   const config = {
-    assistantId: import.meta.env.VITE_ASSISTANT_ID,
+    assistantId: assistantId, // Use dynamic assistantId from state
     apiKey: import.meta.env.VITE_API_KEY,
     buttonConfig: {
       offset: "0px",
-      width: "180px",
+      width: "100px",
       height: "48px",
       type: "pill",
-      idle:    { color: "#00adb5", textColor: "#ffffff", type: "pill", title: "Start Interview", subtitle: "", icon: "" },
+      idle: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: buttonTitle, subtitle: "", icon: "" },
       loading: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: "Connecting...", subtitle: "", icon: "" },
-      active:  { color: "#dc2626", textColor: "#ffffff", type: "pill", title: "End Interview", subtitle: "", icon: "" },
+      active: { color: "#dc2626", textColor: "#ffffff", type: "pill", title: "End Interview", subtitle: "", icon: "" },
       transitionDuration: 0,
     },
   };
@@ -43,6 +52,20 @@ const InterviewBot = () => {
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat, assistantLive, candidateLive]);
+
+  // Fetch interview data and set assistantId dynamically
+  useEffect(() => {
+    const fetchInterviewData = async () => {
+      try {
+        const resumeJdRes = await axios.get("https://interviewbot-backendv1.onrender.com/interview/resume/41", { withCredentials: true });
+        setAssistantId(resumeJdRes.data.assistant_id); // Set dynamic assistantId here
+      } catch (err) {
+        console.error("Setup error:", err);
+      }
+    };
+
+    fetchInterviewData();
+  }, []); // Empty dependency array ensures this runs only once when the component mounts
 
   // Helpers
   const pickText = (msg) => {
@@ -58,6 +81,7 @@ const InterviewBot = () => {
     if (msg?.data?.text) return msg.data.text;
     return "";
   };
+
   const isPartial = (t) => ["partial", "interim", "temp", "temporary"].includes(String(t || "").toLowerCase());
   const isFinal   = (t) => ["final", "finalized", "complete", "completed"].includes(String(t || "").toLowerCase());
   const isAssistantRole = (role) => ["assistant", "ai", "bot"].includes(String(role || "").toLowerCase());
@@ -79,11 +103,13 @@ const InterviewBot = () => {
       });
     }, 1000);
   };
+
   const stopTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     setRemaining(null);
   };
+
   const mmss = (s) => {
     const m = Math.floor((s ?? 0) / 60);
     const sec = (s ?? 0) % 60;
@@ -96,14 +122,6 @@ const InterviewBot = () => {
     script.defer = true;
     script.async = true;
     script.onload = () => {
-      // center the Vapi button & hide icon (UI-only)
-      const style = document.createElement("style");
-      style.textContent = `
-        .vapi-btn-container { left:50%!important; right:auto!important; transform:translateX(-50%)!important; bottom:24px!important; z-index:2147483647!important; }
-        .vapi-btn img, .vapi-btn svg { display:none!important; }
-      `;
-      document.head.appendChild(style);
-
       startInterview(); // auto-start to match your flow
     };
     document.body.appendChild(script);
@@ -114,8 +132,7 @@ const InterviewBot = () => {
       stopCamera();
       stopTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [assistantId]); // Re-run on assistantId change
 
   const startCamera = async () => {
     try {
@@ -141,7 +158,9 @@ const InterviewBot = () => {
   };
 
   const pushChat = (role, text) => {
-    setChat((prev) => [...prev, { role, text, id: prev.length + 1 }]);
+    // Ensure text is always a string
+    const textToPush = typeof text === "string" ? text : JSON.stringify(text);
+    setChat((prev) => [...prev, { role, text: textToPush, id: prev.length + 1 }]);
   };
 
   const startInterview = async () => {
@@ -155,7 +174,7 @@ const InterviewBot = () => {
 
     const instance = window.vapiSDK.run({
       apiKey: config.apiKey,
-      assistant: config.assistantId,
+      assistant: config.assistantId, // Use dynamic assistantId here
       config: config.buttonConfig,
       onCallStart: (callData) => {
         if (callData?.id) sessionStorage.setItem("callId", callData.id);
@@ -166,7 +185,7 @@ const InterviewBot = () => {
 
     // Debug logs
     const dbg = (name, ...args) => console.log(`[vapi:${name}]`, ...args);
-    ["message","call-start","call-end","error"].forEach((evt) => instance.on?.(evt, (...a) => dbg(evt, ...a)));
+    ["message", "call-start", "call-end", "error"].forEach((evt) => instance.on?.(evt, (...a) => dbg(evt, ...a)));
 
     // Client events: both roles
     instance.on?.("message", (raw) => {
@@ -231,6 +250,8 @@ const InterviewBot = () => {
           const text = pickText(evt);
           const ttype = evt?.transcriptType;
 
+          console.log("WebSocket received data:", evt); // Debugging log
+
           if (isAssistantRole(role)) {
             if (evt?.type === "transcript") {
               if (isPartial(ttype)) setAssistantLive(text || "");
@@ -277,6 +298,10 @@ const InterviewBot = () => {
       wsRef.current = null;
       setVapiInstance(null);
       stopCamera();
+
+      // Update button title to "Interview Ended"
+      setButtonTitle("Interview Ended");
+      navigate("/thank-you"); // Redirect to home or another page
     });
 
     instance.on("error", (error) => {
@@ -360,13 +385,13 @@ const InterviewBot = () => {
                             : "bg-[#00adb5] text-white"
                           }`}
                       >
-                        {m.text}
+                        {/* Ensure m.text is always a string */}
+                        {typeof m.text === "string" ? m.text : JSON.stringify(m.text)}
                       </div>
 
                       {!isAssistant && (
-                        {/* <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 grid place-items-center text-xs font-semibold border border-slate-300">
-                          
-                        </div> */}
+                        <div >
+                        </div>
                       )}
                     </li>
                   );
@@ -391,9 +416,7 @@ const InterviewBot = () => {
                     <div className="max-w-[80%] rounded-2xl px-3 py-2 text-[15px] bg-[#00adb5] text-white">
                       {candidateLive}
                     </div>
-                    {/* <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 grid place-items-center text-xs font-semibold border border-slate-300">
-                      You
-                    </div> */}
+                    {/* User's Avatar (optional) */}
                   </li>
                 )}
               </ul>
