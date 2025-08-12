@@ -1,13 +1,12 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import axios from "axios";
 import { FaBuilding, FaBriefcase, FaEnvelope } from "react-icons/fa";
 
 const Setup = () => {
   const videoRef = useRef(null);
-  const streamRef = useRef(null); // <- hold stream for cleanup
+  const streamRef = useRef(null);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -16,10 +15,9 @@ const Setup = () => {
   const [error, setError] = useState(null);
   const [loadingStep, setLoadingStep] = useState(1);
 
-  // Turn on camera immediately (robust logic + cleanup)
+  // Turn on camera
   useEffect(() => {
     let mounted = true;
-
     const startCamera = async () => {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -38,7 +36,6 @@ const Setup = () => {
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        // if component unmounted while awaiting permissions, stop and return
         if (!mounted) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -48,14 +45,12 @@ const Setup = () => {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          // helpful on some browsers (Safari)
           videoRef.current.muted = true;
           videoRef.current.playsInline = true;
           try {
             await videoRef.current.play();
           } catch (playErr) {
-            // ignore play error — video will still show in many browsers
-            // console.warn("Video play() failed:", playErr);
+            // optional: log play errors
           }
         }
       } catch (err) {
@@ -67,7 +62,6 @@ const Setup = () => {
 
     return () => {
       mounted = false;
-      // stop any active tracks
       const s =
         streamRef.current || (videoRef.current && videoRef.current.srcObject);
       if (s && s.getTracks) {
@@ -77,7 +71,6 @@ const Setup = () => {
           } catch (_) {}
         });
       }
-      // remove srcObject to help garbage collection
       if (videoRef.current) {
         try {
           videoRef.current.srcObject = null;
@@ -91,7 +84,7 @@ const Setup = () => {
     const fetchInterviewData = async () => {
       try {
         const resumeJdRes = await axios.get(
-          `https://interviewbot-backendv1.onrender.com/interview/resume/41`,
+          ` https://nexai.qwiktrace.com/ibot/interview/resume/${id}`,
           { withCredentials: true }
         );
         setInterviewData(resumeJdRes.data);
@@ -103,27 +96,36 @@ const Setup = () => {
       }
     };
 
-    fetchInterviewData();
+    if (id) {
+      fetchInterviewData();
+    }
   }, [id]);
 
   const handleStart = async () => {
-    if (!interviewData) {
-      alert("Interview data not available.");
-      return;
-    }
-    try {
-      setLoading(true);
-      setLoadingStep(1);
-      setTimeout(() => setLoadingStep(2), 4000);
-      navigate("/interview", {
-        state: { interviewStarted: true, interviewData },
-      });
-    } catch (err) {
-      console.error("Error starting interview:", err);
-      alert("Failed to start interview.");
-      setLoading(false);
-    }
-  };
+  if (!interviewData) {
+    alert("Interview data not available.");
+    return;
+  }
+  try {
+    setLoading(true);
+    setLoadingStep(1);
+    setTimeout(() => setLoadingStep(2), 4000);
+
+    // ✅ Pass assistant_id separately so Interview.jsx doesn't need to refetch
+    navigate(`/interview/${id}`, {
+      state: {
+        interviewStarted: true,
+        assistantId: interviewData.assistant_id, // <-- pass it directly
+        interviewData
+      },
+    });
+  } catch (err) {
+    console.error("Error starting interview:", err);
+    alert("Failed to start interview.");
+    setLoading(false);
+  }
+};
+
 
   if (error) {
     return (
@@ -134,7 +136,6 @@ const Setup = () => {
   }
 
   return (
-    // <div className="min-h-screen bg-gradient-to-br from-[#fdfcfb] via-[#e2d1c3] to-[#d4ccab] flex items-center justify-center px-6 py-10 relative overflow-hidden">
     <div className="min-h-screen bg-white flex items-center justify-center px-6 py-10 relative overflow-hidden">
       {loadingStep > 1 && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 pointer-events-none">
@@ -155,7 +156,7 @@ const Setup = () => {
           {/* Info Section */}
           <div className="p-10 flex flex-col justify-between text-gray-800">
             <div className="space-y-6 text-sm">
-              <h2 className="text-3xl  tracking-wide font-[sans-serif] font-extrabold">
+              <h2 className="text-3xl tracking-wide font-[sans-serif] font-extrabold">
                 Welcome,{" "}
                 <span className="text-[#00adb5] ">
                   {interviewData?.candidate_name || "Candidate"}
