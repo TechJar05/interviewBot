@@ -1,6 +1,11 @@
-import React from 'react';
+import React,{useEffect} from 'react';
 
 const ThankYouPage = () => {
+   useEffect(() => {
+    // Try to remove SDK button
+    const sdkButton = document.querySelector("vapi-assistant-button");
+    if (sdkButton) sdkButton.remove();
+  }, []);
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="text-center px-8 py-4">
