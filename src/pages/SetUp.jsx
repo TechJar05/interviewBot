@@ -1,13 +1,14 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import axios from "axios";
 import { FaBuilding, FaBriefcase, FaEnvelope } from "react-icons/fa";
 
 const Setup = () => {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const { id } = useParams();
+  const streamRef = useRef(null); // <- hold stream for cleanup
+  const { id } = useParams();  // Dynamically get the id from URL params
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -15,9 +16,10 @@ const Setup = () => {
   const [error, setError] = useState(null);
   const [loadingStep, setLoadingStep] = useState(1);
 
-  // Turn on camera
+  // Turn on camera immediately (robust logic + cleanup)
   useEffect(() => {
     let mounted = true;
+
     const startCamera = async () => {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -36,6 +38,7 @@ const Setup = () => {
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
+        // if component unmounted while awaiting permissions, stop and return
         if (!mounted) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -45,12 +48,14 @@ const Setup = () => {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // helpful on some browsers (Safari)
           videoRef.current.muted = true;
           videoRef.current.playsInline = true;
           try {
             await videoRef.current.play();
           } catch (playErr) {
-            // optional: log play errors
+            // ignore play error — video will still show in many browsers
+            // console.warn("Video play() failed:", playErr);
           }
         }
       } catch (err) {
@@ -62,6 +67,7 @@ const Setup = () => {
 
     return () => {
       mounted = false;
+      // stop any active tracks
       const s =
         streamRef.current || (videoRef.current && videoRef.current.srcObject);
       if (s && s.getTracks) {
@@ -71,6 +77,7 @@ const Setup = () => {
           } catch (_) {}
         });
       }
+      // remove srcObject to help garbage collection
       if (videoRef.current) {
         try {
           videoRef.current.srcObject = null;
@@ -79,12 +86,13 @@ const Setup = () => {
     };
   }, []);
 
-  // Fetch interview data
+  // Fetch interview data dynamically using the id from URL params
   useEffect(() => {
     const fetchInterviewData = async () => {
       try {
+        // Dynamically passing the id in the URL
         const resumeJdRes = await axios.get(
-          ` https://nexai.qwiktrace.com/ibot/interview/resume/${id}`,
+          `https://nexai.qwiktrace.com/ibot/interview/resume/${id}`,
           { withCredentials: true }
         );
         setInterviewData(resumeJdRes.data);
@@ -96,12 +104,10 @@ const Setup = () => {
       }
     };
 
-    if (id) {
-      fetchInterviewData();
-    }
-  }, [id]);
+    fetchInterviewData();
+  }, [id]); // Re-fetch if id changes
 
-  const handleStart = async () => {
+ const handleStart = async () => {
   if (!interviewData) {
     alert("Interview data not available.");
     return;
@@ -110,14 +116,9 @@ const Setup = () => {
     setLoading(true);
     setLoadingStep(1);
     setTimeout(() => setLoadingStep(2), 4000);
-
-    // ✅ Pass assistant_id separately so Interview.jsx doesn't need to refetch
-    navigate(`/interview/${id}`, {
-      state: {
-        interviewStarted: true,
-        assistantId: interviewData.assistant_id, // <-- pass it directly
-        interviewData
-      },
+    // Update the path here to match the new route "/interview-started"
+    navigate("/interview/interview-started", {
+      state: { interviewStarted: true, interviewData },
     });
   } catch (err) {
     console.error("Error starting interview:", err);
@@ -156,7 +157,7 @@ const Setup = () => {
           {/* Info Section */}
           <div className="p-10 flex flex-col justify-between text-gray-800">
             <div className="space-y-6 text-sm">
-              <h2 className="text-3xl tracking-wide font-[sans-serif] font-extrabold">
+              <h2 className="text-3xl  tracking-wide font-[sans-serif] font-extrabold">
                 Welcome,{" "}
                 <span className="text-[#00adb5] ">
                   {interviewData?.candidate_name || "Candidate"}

@@ -4,6 +4,8 @@ import botImage from "../assets/botImage.png"; // small DP for assistant bubbles
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+import { useLocation } from "react-router-dom";
+
 
 const InterviewBot = () => {
   const [vapiInstance, setVapiInstance] = useState(null);
@@ -11,6 +13,8 @@ const InterviewBot = () => {
   const [isInterviewing, setIsInterviewing] = useState(false);
   const [buttonTitle, setButtonTitle] = useState("Start Interview");  
   const navigate = useNavigate();
+    const location = useLocation();
+    const { interviewData } = location.state || {};
 // Default title
 
   // Live & final transcripts
@@ -30,7 +34,7 @@ const InterviewBot = () => {
   const wsRef = useRef(null); // monitor websocket fallback
 
   // State to hold dynamically fetched assistantId
-  const [assistantId, setAssistantId] = useState("");
+  const [assistantId, setAssistantId] = useState(interviewData?.assistant_id || "");
 
   const config = {
     assistantId: assistantId, // Use dynamic assistantId from state
@@ -53,19 +57,13 @@ const InterviewBot = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat, assistantLive, candidateLive]);
 
-  // Fetch interview data and set assistantId dynamically
   useEffect(() => {
-    const fetchInterviewData = async () => {
-      try {
-        const resumeJdRes = await axios.get("https://interviewbot-backendv1.onrender.com/interview/resume/41", { withCredentials: true });
-        setAssistantId(resumeJdRes.data.assistant_id); // Set dynamic assistantId here
-      } catch (err) {
-        console.error("Setup error:", err);
-      }
-    };
-
-    fetchInterviewData();
-  }, []); // Empty dependency array ensures this runs only once when the component mounts
+  if (!assistantId) {
+    axios.get(`https://nexai.qwiktrace.com/ibot/interview/resume/${id}`, { withCredentials: true })
+      .then(res => setAssistantId(res.data.assistant_id))
+      .catch(err => console.error(err));
+  }
+}, [assistantId]);
 
   // Helpers
   const pickText = (msg) => {
@@ -301,7 +299,7 @@ const InterviewBot = () => {
 
       // Update button title to "Interview Ended"
       setButtonTitle("Interview Ended");
-     window.location.href = "/thank-you";// Redirect to home or another page
+     window.location.href = "/interview/thank-you";// Redirect to home or another page
     });
 
     instance.on("error", (error) => {
