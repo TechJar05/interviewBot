@@ -3,28 +3,21 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import Setup from './pages/SetUp';
 import Header from './component/Header';
 import ThankYouPage from './pages/ThankYouPage';
-import InterviewBot from './component/Interview';
+import InterviewBot from './component/Interview'; // Correct import with capital I
 
 function Layout() {
   const location = useLocation();
 
   return (
     <>
-      {/* Show header on all pages except interview screens */}
-      {!location.pathname.startsWith('/interview') && <Header />}
+      {/* Show header on all pages except /interview-started */}
+      {location.pathname !== '/interview-started' && <Header />}
 
       <Routes>
-        {/* Home page */}
-        <Route path="/" element={<Setup />} />
-
-        {/* Setup page before interview */}
+        {/* Updated Setup Route to accept dynamic id and new route names */}
         <Route path="/interview/:id" element={<Setup />} />
-
-        {/* Actual interview */}
-        <Route path="/interview" element={<InterviewBot />} />
-
-        {/* Thank You page */}
-        <Route path="/thank-you" element={<ThankYouPage />} />
+        <Route path="/interview/interview-started" element={<InterviewBot />} />
+        <Route path="/interview/thank-you" element={<ThankYouPage />} />
       </Routes>
     </>
   );
