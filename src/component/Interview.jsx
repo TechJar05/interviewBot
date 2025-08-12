@@ -301,7 +301,7 @@ const InterviewBot = () => {
 
       // Update button title to "Interview Ended"
       setButtonTitle("Interview Ended");
-      navigate("/thank-you"); // Redirect to home or another page
+     window.location.href = "/thank-you";// Redirect to home or another page
     });
 
     instance.on("error", (error) => {
