@@ -11,4 +11,5 @@ body {
 /* Kill animations & shadows */
 .vapi-btn {
   box-shadow: none !important;
+  
 }

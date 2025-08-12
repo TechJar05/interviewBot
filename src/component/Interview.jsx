@@ -1,52 +1,77 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import botImage from "../assets/botImage.png"; // adjust if needed
+import botImage from "../assets/botImage.png"; // small DP for assistant bubbles
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+
 
 const InterviewBot = () => {
   const [vapiInstance, setVapiInstance] = useState(null);
-  const [status, setStatus] = useState(""); // only show "Interview in progress..." / "Interview completed"
+  const [status, setStatus] = useState(""); // "Interview in progress..." / "Interview completed"
   const [isInterviewing, setIsInterviewing] = useState(false);
-  const [isBotSpeaking, setIsBotSpeaking] = useState(false);
+  const [buttonTitle, setButtonTitle] = useState("Start Interview");  
+  const navigate = useNavigate();
+// Default title
 
-  // Assistant transcript
+  // Live & final transcripts
   const [assistantLive, setAssistantLive] = useState("");
-  const [assistantHistory, setAssistantHistory] = useState([]);
-
-  // Candidate transcript
   const [candidateLive, setCandidateLive] = useState("");
-  const [candidateHistory, setCandidateHistory] = useState([]);
+
+  // Combined chat log: { role: "assistant"|"user", text: string, id: number }
+  const [chat, setChat] = useState([]);
+
+  // 10-minute countdown (in seconds); null = hidden
+  const [remaining, setRemaining] = useState(null);
+  const timerRef = useRef(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const transcriptRef = useRef(null); // auto-scroll container
-  const wsRef = useRef(null);         // monitor websocket fallback
+  const chatRef = useRef(null); // auto-scroll chat container
+  const wsRef = useRef(null); // monitor websocket fallback
+
+  // State to hold dynamically fetched assistantId
+  const [assistantId, setAssistantId] = useState("");
 
   const config = {
-    assistantId: import.meta.env.VITE_ASSISTANT_ID,
+    assistantId: assistantId, // Use dynamic assistantId from state
     apiKey: import.meta.env.VITE_API_KEY,
     buttonConfig: {
-      position: "bottom-right",
-      offset: "24px",
-      width: "180px",
+      offset: "0px",
+      width: "100px",
       height: "48px",
-      idle: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: "Start Interview", subtitle: "", icon: "" },
-      loading:{ color: "#00adb5", textColor: "#ffffff", type: "pill", title: "Connecting...", subtitle: "", icon: "" },
+      type: "pill",
+      idle: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: buttonTitle, subtitle: "", icon: "" },
+      loading: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: "Connecting...", subtitle: "", icon: "" },
       active: { color: "#dc2626", textColor: "#ffffff", type: "pill", title: "End Interview", subtitle: "", icon: "" },
       transitionDuration: 0,
     },
   };
 
-  // Auto-scroll transcript box
+  // Auto-scroll chat
   useEffect(() => {
-    const el = transcriptRef.current;
+    const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [assistantLive, assistantHistory, candidateLive, candidateHistory]);
+  }, [chat, assistantLive, candidateLive]);
+
+  // Fetch interview data and set assistantId dynamically
+  useEffect(() => {
+    const fetchInterviewData = async () => {
+      try {
+        const resumeJdRes = await axios.get("https://interviewbot-backendv1.onrender.com/interview/resume/41", { withCredentials: true });
+        setAssistantId(resumeJdRes.data.assistant_id); // Set dynamic assistantId here
+      } catch (err) {
+        console.error("Setup error:", err);
+      }
+    };
+
+    fetchInterviewData();
+  }, []); // Empty dependency array ensures this runs only once when the component mounts
 
   // Helpers
   const pickText = (msg) => {
     if (!msg) return "";
     if (typeof msg.transcript === "string") return msg.transcript; // your SDK primary field
-    if (typeof msg.delta === "string") return msg.delta;           // some builds stream deltas
+    if (typeof msg.delta === "string") return msg.delta;
     if (typeof msg.text === "string") return msg.text;
     if (typeof msg.output === "string") return msg.output;
     if (typeof msg.content === "string") return msg.content;
@@ -56,10 +81,40 @@ const InterviewBot = () => {
     if (msg?.data?.text) return msg.data.text;
     return "";
   };
+
   const isPartial = (t) => ["partial", "interim", "temp", "temporary"].includes(String(t || "").toLowerCase());
   const isFinal   = (t) => ["final", "finalized", "complete", "completed"].includes(String(t || "").toLowerCase());
   const isAssistantRole = (role) => ["assistant", "ai", "bot"].includes(String(role || "").toLowerCase());
-  const isUserRole = (role) => ["user", "human", "caller", "customer", "client", "candidate"].includes(String(role || "").toLowerCase());
+  const isUserRole      = (role) => ["user", "human", "caller", "customer", "client", "candidate"].includes(String(role || "").toLowerCase());
+
+  // Timer controls
+  const startTimer = (seconds = 600) => {
+    setRemaining(seconds);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev === null) return prev;
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    setRemaining(null);
+  };
+
+  const mmss = (s) => {
+    const m = Math.floor((s ?? 0) / 60);
+    const sec = (s ?? 0) % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -67,15 +122,7 @@ const InterviewBot = () => {
     script.defer = true;
     script.async = true;
     script.onload = () => {
-      // Center the Vapi button & hide icon (UI-only)
-      const style = document.createElement("style");
-      style.textContent = `
-        .vapi-btn-container { left:50%!important; right:auto!important; transform:translateX(-50%)!important; bottom:24px!important; z-index:2147483647!important; }
-        .vapi-btn img, .vapi-btn svg { display:none!important; }
-      `;
-      document.head.appendChild(style);
-
-      startInterview(); // keep auto-start
+      startInterview(); // auto-start to match your flow
     };
     document.body.appendChild(script);
 
@@ -83,9 +130,9 @@ const InterviewBot = () => {
       if (vapiInstance) vapiInstance.stop();
       wsRef.current?.close();
       stopCamera();
+      stopTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [assistantId]); // Re-run on assistantId change
 
   const startCamera = async () => {
     try {
@@ -110,6 +157,12 @@ const InterviewBot = () => {
     }
   };
 
+  const pushChat = (role, text) => {
+    // Ensure text is always a string
+    const textToPush = typeof text === "string" ? text : JSON.stringify(text);
+    setChat((prev) => [...prev, { role, text: textToPush, id: prev.length + 1 }]);
+  };
+
   const startInterview = async () => {
     if (!window.vapiSDK) {
       setStatus("Failed to load interview SDK");
@@ -121,126 +174,96 @@ const InterviewBot = () => {
 
     const instance = window.vapiSDK.run({
       apiKey: config.apiKey,
-      assistant: config.assistantId,
+      assistant: config.assistantId, // Use dynamic assistantId here
       config: config.buttonConfig,
       onCallStart: (callData) => {
         if (callData?.id) sessionStorage.setItem("callId", callData.id);
         if (callData?.monitor?.listenUrl) sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
-        instance.setState("active"); // instant End Interview
+        instance.setState("active"); // instant "End Interview"
       },
     });
 
-    // Debug logs (handy while verifying roles)
+    // Debug logs
     const dbg = (name, ...args) => console.log(`[vapi:${name}]`, ...args);
-    ["message","assistant-speech-start","assistant-speech-end","call-start","call-end","error"]
-      .forEach((evt) => instance.on?.(evt, (...a) => dbg(evt, ...a)));
+    ["message", "call-start", "call-end", "error"].forEach((evt) => instance.on?.(evt, (...a) => dbg(evt, ...a)));
 
-    // Bot animation
-    instance.on?.("assistant-speech-start", () => setIsBotSpeaking(true));
-    instance.on?.("assistant-speech-end", () => setIsBotSpeaking(false));
-
-    // -------- MAIN: client events (both roles) --------
+    // Client events: both roles
     instance.on?.("message", (raw) => {
       if (!raw) return;
       const role = String(raw.role || "").toLowerCase();
-
-      // Normalized text
       const text = pickText(raw);
-      const ttype = raw.transcriptType; // "partial" | "final" (for type="transcript")
+      const ttype = raw.transcriptType;
 
-      // ASSISTANT stream
       if (isAssistantRole(role)) {
         if (raw.type === "transcript") {
           if (isPartial(ttype)) setAssistantLive(text || "");
           else if (isFinal(ttype) && text) {
-            setAssistantHistory((prev) => [...prev, text]);
             setAssistantLive("");
+            pushChat("assistant", text);
           }
           return;
         }
-        // Fallbacks
-        if (raw.type === "speech-update") {
-          if (text) setAssistantLive(text);
-          return;
-        }
-        if (raw.type === "model-output") {
-          if (text) {
-            setAssistantHistory((prev) => [...prev, text]);
-            setAssistantLive("");
-          }
-          return;
+        if (raw.type === "model-output" && text) {
+          pushChat("assistant", text);
+          setAssistantLive("");
         }
         if (!raw.type && text) {
-          setAssistantHistory((prev) => [...prev, text]);
+          pushChat("assistant", text);
           setAssistantLive("");
         }
         return;
       }
 
-      // CANDIDATE (user) stream
       if (isUserRole(role)) {
         if (raw.type === "transcript") {
           if (isPartial(ttype)) setCandidateLive(text || "");
           else if (isFinal(ttype) && text) {
-            setCandidateHistory((prev) => [...prev, text]);
             setCandidateLive("");
+            pushChat("user", text);
           }
           return;
         }
-        // Fallbacks
-        if (raw.type === "speech-update") {
-          if (text) setCandidateLive(text);
-          return;
-        }
-        if (raw.type === "model-output") {
-          if (text) {
-            setCandidateHistory((prev) => [...prev, text]);
-            setCandidateLive("");
-          }
-          return;
+        if (raw.type === "model-output" && text) {
+          pushChat("user", text);
+          setCandidateLive("");
         }
         if (!raw.type && text) {
-          setCandidateHistory((prev) => [...prev, text]);
+          pushChat("user", text);
           setCandidateLive("");
         }
       }
     });
 
-    // Optional fallback: monitor WebSocket (server stream)
+    // Timer + optional server monitor
     instance.on("call-start", () => {
       setStatus("Interview in progress...");
+      startTimer(600);
+
       const url = sessionStorage.getItem("listenUrl");
       if (!url) return;
       try {
         const ws = new WebSocket(url);
         wsRef.current = ws;
-        ws.onopen = () => console.log("[vapi:monitor] open");
-        ws.onerror = (e) => console.warn("[vapi:monitor] error", e);
-        ws.onclose = () => console.log("[vapi:monitor] close");
         ws.onmessage = (e) => {
           const evt = JSON.parse(e.data || "{}");
           const role = String(evt?.role || "").toLowerCase();
           const text = pickText(evt);
           const ttype = evt?.transcriptType;
 
+          console.log("WebSocket received data:", evt); // Debugging log
+
           if (isAssistantRole(role)) {
             if (evt?.type === "transcript") {
               if (isPartial(ttype)) setAssistantLive(text || "");
               else if (isFinal(ttype) && text) {
-                setAssistantHistory((p) => [...p, text]);
                 setAssistantLive("");
+                pushChat("assistant", text);
               }
               return;
             }
-            if (evt?.type === "speech-update") {
-              if (text) setAssistantLive(text);
-              return;
-            }
-            if (evt?.type === "model-output") {
-              if (text) {
-                setAssistantHistory((p) => [...p, text]);
-                setAssistantLive("");
-              }
+            if (evt?.type === "model-output" && text) {
+              pushChat("assistant", text);
+              setAssistantLive("");
             }
             return;
           }
@@ -249,24 +272,13 @@ const InterviewBot = () => {
             if (evt?.type === "transcript") {
               if (isPartial(ttype)) setCandidateLive(text || "");
               else if (isFinal(ttype) && text) {
-                setCandidateHistory((p) => [...p, text]);
                 setCandidateLive("");
+                pushChat("user", text);
               }
               return;
             }
-            if (evt?.type === "speech-update") {
-              if (text) setCandidateLive(text);
-              return;
-            }
-            if (evt?.type === "model-output") {
-              if (text) {
-                setCandidateHistory((p) => [...p, text]);
-                setCandidateLive("");
-              }
-              return;
-            }
-            if (!evt?.type && text) {
-              setCandidateHistory((p) => [...p, text]);
+            if (evt?.type === "model-output" && text) {
+              pushChat("user", text);
               setCandidateLive("");
             }
           }
@@ -279,21 +291,25 @@ const InterviewBot = () => {
     instance.on("call-end", () => {
       setStatus("Interview completed");
       setIsInterviewing(false);
-      setIsBotSpeaking(false);
       setAssistantLive("");
       setCandidateLive("");
+      stopTimer();
       wsRef.current?.close();
       wsRef.current = null;
       setVapiInstance(null);
       stopCamera();
+
+      // Update button title to "Interview Ended"
+      setButtonTitle("Interview Ended");
+      navigate("/thank-you"); // Redirect to home or another page
     });
 
     instance.on("error", (error) => {
       setStatus(`Error: ${error.message}`);
       setIsInterviewing(false);
-      setIsBotSpeaking(false);
       setAssistantLive("");
       setCandidateLive("");
+      stopTimer();
       wsRef.current?.close();
       wsRef.current = null;
       setVapiInstance(null);
@@ -309,81 +325,105 @@ const InterviewBot = () => {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="w-full max-w-6xl bg-white border-[3px] border-[#00adb5]/40 rounded-3xl shadow-sm"
+        className="relative w-full max-w-6xl bg-white border-[3px] border-[#00adb5]/40 rounded-3xl shadow-sm"
       >
-        {/* 45/55 split */}
-        <div className="grid grid-cols-1 md:grid-cols-[45%_55%]">
-          {/* LEFT: Title + Bot + Status + Transcripts (Assistant + Candidate) */}
+        {/* ⏱️ Timer top-right */}
+        {remaining !== null && (
+          <div className="absolute top-3 right-3">
+            <div className="flex items-center gap-2 bg-white border border-[#00adb5]/40 rounded-full px-3 py-1 shadow-sm">
+              <span className="text-lg">⏱</span>
+              <span className="font-mono font-bold text-[#00adb5]">{mmss(remaining)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* EXACT 50/50 split */}
+        <div className="grid grid-cols-1 md:grid-cols-[50%_50%]">
+          {/* LEFT: Title + divider + chat */}
           <div className="p-8 md:p-10 bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none
                           border-b md:border-b-0 md:border-r border-[#00adb5]/20">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4 md:mb-6">
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
               <span className="text-[#00adb5]">NEX AI</span>{" "}
               <span className="text-[#0f172a]">Interview Bot</span>
             </h1>
 
-            <div className="grid place-items-center">
-              <div className="flex flex-col items-center">
-                <motion.div
-                  className="rounded-full p-4"
-                  style={{ border: "4px solid #00adb5" }}
-                  animate={
-                    isBotSpeaking
-                      ? { scale: [1, 1.06, 1], boxShadow: ["0 0 0 0 rgba(0,173,181,0.3)", "0 0 0 16px rgba(0,173,181,0)", "0 0 0 0 rgba(0,173,181,0)"] }
-                      : { scale: 1, boxShadow: "0 0 0 0 rgba(0,0,0,0)" }
-                  }
-                  transition={isBotSpeaking ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
-                >
-                  <img src={botImage} alt="Interview Bot" className="w-40 h-40 md:w-56 md:h-56 object-contain" />
-                </motion.div>
+            {/* Partition line under title */}
+            <div className="mt-4 mb-5 h-px bg-[#00adb5]/20" />
 
-                {status && (
-                  <p className="mt-3 text-sm font-medium px-3 py-1 rounded-full" style={{ background: "#00adb5", color: "#ffffff" }}>
-                    {status}
-                  </p>
+            {/* Status (optional) */}
+            {status && (
+              <p className="mb-3 text-xs font-semibold tracking-wide text-[#00adb5]">
+                {status}
+              </p>
+            )}
+
+            {/* Chat area — fixed height, scrolls internally to avoid layout shifts */}
+            <div ref={chatRef} className="h-[28rem] overflow-auto pr-1">
+              {/* Render final messages in order */}
+              <ul className="space-y-3">
+                {chat.map((m) => {
+                  const isAssistant = m.role === "assistant";
+                  return (
+                    <li
+                      key={m.id}
+                      className={`flex items-end gap-2 ${isAssistant ? "justify-start" : "justify-end"}`}
+                    >
+                      {/* Assistant: avatar on left, user: avatar on right */}
+                      {isAssistant && (
+                        <img
+                          src={botImage}
+                          alt="Bot"
+                          className="w-8 h-8 rounded-full shrink-0 border border-[#00adb5]/40"
+                        />
+                      )}
+
+                      {/* Bubble */}
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-3 py-2 text-[15px] leading-relaxed
+                          ${isAssistant
+                            ? "bg-[#E6FAFB] text-[#0f172a] border border-[#00adb5]/40"
+                            : "bg-[#00adb5] text-white"
+                          }`}
+                      >
+                        {/* Ensure m.text is always a string */}
+                        {typeof m.text === "string" ? m.text : JSON.stringify(m.text)}
+                      </div>
+
+                      {!isAssistant && (
+                        <div >
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+
+                {/* Live bubbles (not added to history) */}
+                {assistantLive && (
+                  <li className="flex items-end gap-2 justify-start opacity-90">
+                    <img
+                      src={botImage}
+                      alt="Bot"
+                      className="w-8 h-8 rounded-full shrink-0 border border-[#00adb5]/40"
+                    />
+                    <div className="max-w-[80%] rounded-2xl px-3 py-2 text-[15px] bg-[#E6FAFB] text-[#0f172a] border border-[#00adb5]/40">
+                      {assistantLive}
+                    </div>
+                  </li>
                 )}
-              </div>
-            </div>
 
-            {/* Transcripts under the logo (single scrollable box with both sections) */}
-            <div ref={transcriptRef} className="mt-5 rounded-xl border border-[#00adb5]/30 bg-white p-3 max-h-64 overflow-auto">
-              {/* Assistant */}
-              <div className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Assistant Transcript</div>
-              {assistantHistory.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {assistantHistory.map((line, i) => (
-                    <p key={`a-${i}`} className="text-[15px] text-slate-800">{line}</p>
-                  ))}
-                </div>
-              )}
-              {assistantLive && (
-                <div className="mt-2 text-[15px]">
-                  <span className="font-medium text-[#00adb5]">Speaking… </span>
-                  <span>{assistantLive}</span>
-                </div>
-              )}
-
-              {/* Divider */}
-              <div className="my-3 h-px bg-[#00adb5]/20" />
-
-              {/* Candidate */}
-              <div className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Your Transcript</div>
-              {candidateHistory.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {candidateHistory.map((line, i) => (
-                    <p key={`u-${i}`} className="text-[15px] text-slate-800">{line}</p>
-                  ))}
-                </div>
-              )}
-              {candidateLive && (
-                <div className="mt-2 text-[15px]">
-                  <span className="font-medium text-[#00adb5]">You… </span>
-                  <span>{candidateLive}</span>
-                </div>
-              )}
+                {candidateLive && (
+                  <li className="flex items-end gap-2 justify-end opacity-90">
+                    <div className="max-w-[80%] rounded-2xl px-3 py-2 text-[15px] bg-[#00adb5] text-white">
+                      {candidateLive}
+                    </div>
+                    {/* User's Avatar (optional) */}
+                  </li>
+                )}
+              </ul>
             </div>
           </div>
 
-          {/* RIGHT: Camera */}
+          {/* RIGHT: Camera (unchanged) */}
           <div className="p-8 md:p-10 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none
                           border-t md:border-t-0 border-[#00adb5]/20">
             <div className="rounded-xl overflow-hidden border border-[#00adb5]/30 bg-white">
