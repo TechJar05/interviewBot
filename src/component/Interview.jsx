@@ -161,25 +161,40 @@ const InterviewBot = () => {
     setChat((prev) => [...prev, { role, text: textToPush, id: prev.length + 1 }]);
   };
 
-  const startInterview = async () => {
-    if (!window.vapiSDK) {
-      setStatus("Failed to load interview SDK");
-      return;
-    }
+ const startInterview = async () => {
+  if (!window.vapiSDK) {
+    setStatus("Failed to load interview SDK");
+    return;
+  }
 
-    setIsInterviewing(true);
-    await startCamera();
+  setIsInterviewing(true);
+  await startCamera();
 
-    const instance = window.vapiSDK.run({
-      apiKey: config.apiKey,
-      assistant: config.assistantId, // Use dynamic assistantId here
-      config: config.buttonConfig,
-      onCallStart: (callData) => {
-        if (callData?.id) sessionStorage.setItem("callId", callData.id);
-        if (callData?.monitor?.listenUrl) sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
-        instance.setState("active"); // instant "End Interview"
-      },
-    });
+  const instance = window.vapiSDK.run({
+    apiKey: config.apiKey,
+    assistant: config.assistantId, // Use dynamic assistantId here
+    config: config.buttonConfig,
+    onCallStart: (callData) => {
+      console.log("SDK call data:", callData);  // Log entire callData for debugging
+
+      if (callData?.id) {
+        console.log("Storing call ID:", callData.id);
+        // Store the call ID in both sessionStorage and localStorage
+        sessionStorage.setItem("callId", callData.id);
+        localStorage.setItem("callId", callData.id);  // Store in localStorage as well
+      } else {
+        console.error("Call ID not found in SDK response.");
+      }
+
+      if (callData?.monitor?.listenUrl) {
+        console.log("Storing listenUrl:", callData.monitor.listenUrl);
+        sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
+      }
+
+      instance.setState("active"); // instant "End Interview"
+    },
+  });
+ 
 
     // Debug logs
     const dbg = (name, ...args) => console.log(`[vapi:${name}]`, ...args);

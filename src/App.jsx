@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import Setup from './pages/SetUp';
 import Header from './component/Header';
 import ThankYouPage from './pages/ThankYouPage';
-import InterviewBot from './component/Interview'; // Correct import with capital I
+import InterviewBot from './component/Interview';
+import Report from './pages/Report'; // Correct import with capital I
 
 function Layout() {
   const location = useLocation();
@@ -18,6 +19,8 @@ function Layout() {
         <Route path="/interview/:id" element={<Setup />} />
         <Route path="/interview/interview-started" element={<InterviewBot />} />
         <Route path="/interview/thank-you" element={<ThankYouPage />} />
+        <Route path="/interview/report" element={<Report />} />
+
       </Routes>
     </>
   );
