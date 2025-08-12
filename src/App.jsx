@@ -2,9 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Setup from './pages/SetUp';
 import Header from './component/Header';
-import InterviewBot from '.componenet/Interview';
 import ThankYouPage from './pages/ThankYouPage';
-// import Report from './pages/Report';
+import InterviewBot from './component/Interview'; // Correct import with capital I
 
 function Layout() {
   const location = useLocation();
@@ -33,6 +32,7 @@ function App() {
 }
 
 export default App;
+
 
 
 // import React, { useEffect } from 'react';
