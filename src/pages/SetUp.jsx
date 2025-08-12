@@ -95,6 +95,7 @@ const Setup = () => {
           `https://nexai.qwiktrace.com/ibot/interview/resume/${id}`,
           { withCredentials: true }
         );
+         localStorage.setItem("resumeId", resumeJdRes.data.id);  // Store id in localStorage
         setInterviewData(resumeJdRes.data);
         setLoading(false);
       } catch (err) {
