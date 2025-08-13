@@ -45,8 +45,7 @@ const Setup = () => {
         }
 
         streamRef.current = stream;
-
-        if (videoRef.current) {
+ if (videoRef.current) {
           videoRef.current.srcObject = stream;
           // helpful on some browsers (Safari)
           videoRef.current.muted = true;
@@ -92,10 +91,11 @@ const Setup = () => {
       try {
         // Dynamically passing the id in the URL
         const resumeJdRes = await axios.get(
-          `https://nexai.qwiktrace.com/ibot/interview/resume/${id}`,
+`https://nexai.qwiktrace.com/ibot/interview/resume/${id}`,
           { withCredentials: true }
         );
          localStorage.setItem("resumeId", resumeJdRes.data.id);  // Store id in localStorage
+         localStorage.setItem("assistantId", resumeJdRes.data.assistant_id);  
         setInterviewData(resumeJdRes.data);
         setLoading(false);
       } catch (err) {
@@ -144,7 +144,7 @@ const Setup = () => {
           <div className="text-white text-lg animate-pulse flex items-center gap-3 px-6 text-center">
             <i className="fas fa-spinner fa-spin text-xl"></i>
             Preparing your interview...
-          </div>
+ </div>
         </div>
       )}
 
@@ -197,7 +197,7 @@ const Setup = () => {
                     </motion.li>
                   ))}
                 </ul>
-              </div>
+ </div>
 
               {/* Candidate Details */}
               <div className="mt-6 space-y-2 text-sm leading-relaxed">
