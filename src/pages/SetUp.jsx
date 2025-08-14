@@ -228,7 +228,7 @@ const Setup = () => {
               disabled={loading}
               className="mt-6 bg-[#00adb5] -[#81cfd8] hover:text-black text-white px-6 py-3 rounded-full font-semibold shadow-md transition-all"
             >
-              <i className="fas fa-play mr-2"></i> Start Interview
+              <i className="fas fa-play mr-2"></i> Proceed
             </motion.button>
           </div>
 
