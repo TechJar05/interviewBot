@@ -34,6 +34,10 @@ const ThankYouPage = () => {
   const [phase, setPhase] = useState(0);
   const chartRef = useRef(null);
 
+  useEffect(() => {
+  handleViewReport();
+}, []);
+
   
 
   useEffect(() => {
@@ -276,7 +280,7 @@ async function waitForEndedCall({ assistantId, bearerToken, targetCallId = null,
             </p>
           )}
 
-          {phase === 2 && !report && (
+          {/* {phase === 2 && !report && (
             <button
               onClick={handleViewReport}
               className="mt-6 px-6 py-3 text-white bg-[#00adb5] rounded-lg hover:bg-[#009ba2]"
@@ -284,7 +288,7 @@ async function waitForEndedCall({ assistantId, bearerToken, targetCallId = null,
             >
               {loading ? "Generating..." : "View Report"}
             </button>
-          )}
+          )} */}
 
           {report && (
             <div className="mt-6 border rounded-lg shadow-lg bg-white p-6 text-left">
