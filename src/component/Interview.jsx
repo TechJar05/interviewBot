@@ -86,7 +86,7 @@ const InterviewBot = () => {
   const isUserRole      = (role) => ["user", "human", "caller", "customer", "client", "candidate"].includes(String(role || "").toLowerCase());
 
   // Timer controls
-  const startTimer = (seconds = 600) => {
+  const startTimer = (seconds = 420) => {
     setRemaining(seconds);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -250,7 +250,7 @@ const InterviewBot = () => {
     // Timer + optional server monitor
     instance.on("call-start", () => {
       setStatus("Interview in progress...");
-      startTimer(600);
+      startTimer(420);
 
       const url = sessionStorage.getItem("listenUrl");
       if (!url) return;
