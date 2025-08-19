@@ -355,7 +355,8 @@ const InterviewBot = () => {
           <div className="p-8 md:p-10 bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none
                           border-b md:border-b-0 md:border-r border-[#00adb5]/20">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-              <span className="text-[#00adb5]">NEX AI</span>{" "}
+              {/* <span className="text-[#00adb5]">NEX AI</span>{" "} */}
+              <span className="text-[#f5540f]">NEX AI</span>{" "}
               <span className="text-[#0f172a]">Interview Bot</span>
             </h1>
 
