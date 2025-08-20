@@ -13,8 +13,12 @@ const InterviewBot = () => {
   const [isInterviewing, setIsInterviewing] = useState(false);
   const [buttonTitle, setButtonTitle] = useState("Start Interview");  
   const navigate = useNavigate();
-    const location = useLocation();
-    const { interviewData } = location.state || {};
+  const location = useLocation();
+  const { interviewData } = location.state || {};
+
+  const [sentWrapUp, setSentWrapUp] = useState(false);
+  const [needsWrapUp, setNeedsWrapUp] = useState(false);
+
 // Default title
 
   // Live & final transcripts
@@ -57,13 +61,14 @@ const InterviewBot = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat, assistantLive, candidateLive]);
 
-  useEffect(() => {
-  if (!assistantId) {
-    axios.get(`https://nexai.qwiktrace.com/ibot/interview/resume/${id}`, { withCredentials: true })
+ useEffect(() => {
+  if (!assistantId && interviewData?.resume_id) {
+    axios.get(`https://nexai.qwiktrace.com/ibot/interview/resume/${interviewData.resume_id}`, { withCredentials: true })
       .then(res => setAssistantId(res.data.assistant_id))
       .catch(err => console.error(err));
   }
-}, [assistantId]);
+}, [assistantId, interviewData?.resume_id]);
+
 
   // Helpers
   const pickText = (msg) => {
@@ -86,7 +91,7 @@ const InterviewBot = () => {
   const isUserRole      = (role) => ["user", "human", "caller", "customer", "client", "candidate"].includes(String(role || "").toLowerCase());
 
   // Timer controls
-  const startTimer = (seconds = 420) => {
+  const startTimer = (seconds = 240) => {
     setRemaining(seconds);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -130,7 +135,41 @@ const InterviewBot = () => {
       stopCamera();
       stopTimer();
     };
-  }, [assistantId]); // Re-run on assistantId change
+  }, [assistantId]); 
+  
+// 🔔 Mark when we need to send wrap-up (at 1 minute)
+useEffect(() => {
+  if (remaining === 60 && !sentWrapUp) {
+    setNeedsWrapUp(true);
+    console.log("⏰ 1 minute remaining - waiting for natural break");
+  }
+}, [remaining, sentWrapUp]);
+
+// 🔔 Send wrap-up message at natural conversation break
+useEffect(() => {
+  if (needsWrapUp && !sentWrapUp && vapiInstance) {
+    // Check if assistant just finished speaking (no live message)
+    if (!assistantLive && !candidateLive) {
+      setSentWrapUp(true);
+      setNeedsWrapUp(false);
+      
+      try {
+        vapiInstance.send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content: 'Now mention that only one minute remains and begin wrapping up the interview naturally.'
+          }
+        });
+        console.log("⚡ Graceful wrap-up message sent during natural break");
+      } catch (err) {
+        console.error("⚌ Failed to send wrap-up message:", err);
+      }
+    }
+  }
+}, [needsWrapUp, sentWrapUp, vapiInstance, assistantLive, candidateLive]);
+
+
 
   const startCamera = async () => {
     try {
@@ -187,9 +226,15 @@ const InterviewBot = () => {
       }
 
       if (callData?.monitor?.listenUrl) {
-        console.log("Storing listenUrl:", callData.monitor.listenUrl);
-        sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
-      }
+  console.log("Storing listenUrl:", callData.monitor.listenUrl);
+  sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
+}
+
+if (callData?.monitor?.controlUrl) {
+  console.log("Storing controlUrl:", callData.monitor.controlUrl);
+  localStorage.setItem("controlUrl", callData.monitor.controlUrl);
+}
+
 
       instance.setState("active"); // instant "End Interview"
     },
@@ -250,7 +295,7 @@ const InterviewBot = () => {
     // Timer + optional server monitor
     instance.on("call-start", () => {
       setStatus("Interview in progress...");
-      startTimer(420);
+      startTimer(240);
 
       const url = sessionStorage.getItem("listenUrl");
       if (!url) return;
