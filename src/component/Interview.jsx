@@ -6,20 +6,22 @@ import { useNavigate } from "react-router-dom";
 
 import { useLocation } from "react-router-dom";
 
-
 const InterviewBot = () => {
   const [vapiInstance, setVapiInstance] = useState(null);
   const [status, setStatus] = useState(""); // "Interview in progress..." / "Interview completed"
   const [isInterviewing, setIsInterviewing] = useState(false);
-  const [buttonTitle, setButtonTitle] = useState("Start Interview");  
+  const [buttonTitle, setButtonTitle] = useState("Start Interview");
+  // eslint-disable-next-line no-unused-vars
   const navigate = useNavigate();
   const location = useLocation();
   const { interviewData } = location.state || {};
 
   const [sentWrapUp, setSentWrapUp] = useState(false);
   const [needsWrapUp, setNeedsWrapUp] = useState(false);
+  const [sentFinalMessage, setSentFinalMessage] = useState(false);
+  const [lastQuestionTime, setLastQuestionTime] = useState(null);
 
-// Default title
+  // Default title
 
   // Live & final transcripts
   const [assistantLive, setAssistantLive] = useState("");
@@ -38,7 +40,9 @@ const InterviewBot = () => {
   const wsRef = useRef(null); // monitor websocket fallback
 
   // State to hold dynamically fetched assistantId
-  const [assistantId, setAssistantId] = useState(interviewData?.assistant_id || "");
+  const [assistantId, setAssistantId] = useState(
+    interviewData?.assistant_id || ""
+  );
 
   const config = {
     assistantId: assistantId, // Use dynamic assistantId from state
@@ -48,9 +52,30 @@ const InterviewBot = () => {
       width: "100px",
       height: "48px",
       type: "pill",
-      idle: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: buttonTitle, subtitle: "", icon: "" },
-      loading: { color: "#00adb5", textColor: "#ffffff", type: "pill", title: "Connecting...", subtitle: "", icon: "" },
-      active: { color: "#dc2626", textColor: "#ffffff", type: "pill", title: "End Interview", subtitle: "", icon: "" },
+      idle: {
+        color: "#00adb5",
+        textColor: "#ffffff",
+        type: "pill",
+        title: buttonTitle,
+        subtitle: "",
+        icon: "",
+      },
+      loading: {
+        color: "#00adb5",
+        textColor: "#ffffff",
+        type: "pill",
+        title: "Connecting...",
+        subtitle: "",
+        icon: "",
+      },
+      active: {
+        color: "#dc2626",
+        textColor: "#ffffff",
+        type: "pill",
+        title: "End Interview",
+        subtitle: "",
+        icon: "",
+      },
       transitionDuration: 0,
     },
   };
@@ -61,14 +86,17 @@ const InterviewBot = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat, assistantLive, candidateLive]);
 
- useEffect(() => {
-  if (!assistantId && interviewData?.resume_id) {
-    axios.get(`https://nexai.qwiktrace.com/ibot/interview/resume/${interviewData.resume_id}`, { withCredentials: true })
-      .then(res => setAssistantId(res.data.assistant_id))
-      .catch(err => console.error(err));
-  }
-}, [assistantId, interviewData?.resume_id]);
-
+  useEffect(() => {
+    if (!assistantId && interviewData?.resume_id) {
+      axios
+        .get(
+          `https://nexai.qwiktrace.com/ibot/interview/resume/${interviewData.resume_id}`,
+          { withCredentials: true }
+        )
+        .then((res) => setAssistantId(res.data.assistant_id))
+        .catch((err) => console.error(err));
+    }
+  }, [assistantId, interviewData?.resume_id]);
 
   // Helpers
   const pickText = (msg) => {
@@ -79,16 +107,29 @@ const InterviewBot = () => {
     if (typeof msg.output === "string") return msg.output;
     if (typeof msg.content === "string") return msg.content;
     if (Array.isArray(msg.content)) {
-      return msg.content.map((c) => (typeof c === "string" ? c : c?.text || c?.value || "")).join(" ").trim();
+      return msg.content
+        .map((c) => (typeof c === "string" ? c : c?.text || c?.value || ""))
+        .join(" ")
+        .trim();
     }
     if (msg?.data?.text) return msg.data.text;
     return "";
   };
 
-  const isPartial = (t) => ["partial", "interim", "temp", "temporary"].includes(String(t || "").toLowerCase());
-  const isFinal   = (t) => ["final", "finalized", "complete", "completed"].includes(String(t || "").toLowerCase());
-  const isAssistantRole = (role) => ["assistant", "ai", "bot"].includes(String(role || "").toLowerCase());
-  const isUserRole      = (role) => ["user", "human", "caller", "customer", "client", "candidate"].includes(String(role || "").toLowerCase());
+  const isPartial = (t) =>
+    ["partial", "interim", "temp", "temporary"].includes(
+      String(t || "").toLowerCase()
+    );
+  const isFinal = (t) =>
+    ["final", "finalized", "complete", "completed"].includes(
+      String(t || "").toLowerCase()
+    );
+  const isAssistantRole = (role) =>
+    ["assistant", "ai", "bot"].includes(String(role || "").toLowerCase());
+  const isUserRole = (role) =>
+    ["user", "human", "caller", "customer", "client", "candidate"].includes(
+      String(role || "").toLowerCase()
+    );
 
   // Timer controls
   const startTimer = (seconds = 600) => {
@@ -121,7 +162,8 @@ const InterviewBot = () => {
 
   useEffect(() => {
     const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+    script.src =
+      "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
     script.defer = true;
     script.async = true;
     script.onload = () => {
@@ -135,45 +177,94 @@ const InterviewBot = () => {
       stopCamera();
       stopTimer();
     };
-  }, [assistantId]); 
-  
-// 🔔 Mark when we need to send wrap-up (at 1 minute)
-useEffect(() => {
-  if (remaining === 60 && !sentWrapUp) {
-    setNeedsWrapUp(true);
-    console.log("⏰ 1 minute remaining - waiting for natural break");
-  }
-}, [remaining, sentWrapUp]);
+  }, [assistantId]);
 
-// 🔔 Send wrap-up message at natural conversation break
-useEffect(() => {
-  if (needsWrapUp && !sentWrapUp && vapiInstance) {
-    // Check if assistant just finished speaking (no live message)
-    if (!assistantLive && !candidateLive) {
-      setSentWrapUp(true);
-      setNeedsWrapUp(false);
-      
-      try {
-        vapiInstance.send({
-          type: 'add-message',
-          message: {
-            role: 'system',
-            content: 'Now mention that only one minute remains and begin wrapping up the interview naturally.'
+  // 🔔 Mark when we need to send wrap-up (at 1 minute)
+  useEffect(() => {
+    if (remaining === 60 && !sentWrapUp) {
+      setNeedsWrapUp(true);
+      console.log("⏰ 1 minute remaining - waiting for natural break");
+    }
+  }, [remaining, sentWrapUp]);
+
+  // 🔔 Send wrap-up message at natural conversation break (with question answering time)
+  useEffect(() => {
+    if (needsWrapUp && !sentWrapUp && vapiInstance) {
+      // Check if assistant just finished speaking (no live message)
+      if (!assistantLive && !candidateLive) {
+        // If a question was asked recently, wait at least 15 seconds for candidate to answer
+        const timeSinceQuestion = lastQuestionTime
+          ? Date.now() - lastQuestionTime
+          : Infinity;
+        const minAnswerTime = 15000; // 15 seconds
+
+        if (timeSinceQuestion >= minAnswerTime) {
+          setSentWrapUp(true);
+          setNeedsWrapUp(false);
+
+          try {
+            vapiInstance.send({
+              type: "add-message",
+              message: {
+                role: "system",
+                content:
+                  "Now mention that only one minute remains. Allow the candidate to give a brief final answer if they were responding to a question, then begin wrapping up the interview naturally.",
+              },
+            });
+            console.log(
+              "⚡ Graceful wrap-up message sent during natural break"
+            );
+          } catch (err) {
+            console.error("⚌ Failed to send wrap-up message:", err);
           }
-        });
-        console.log("⚡ Graceful wrap-up message sent during natural break");
-      } catch (err) {
-        console.error("⚌ Failed to send wrap-up message:", err);
+        } else {
+          console.log(
+            `⏳ Waiting ${Math.ceil(
+              (minAnswerTime - timeSinceQuestion) / 1000
+            )}s more for candidate to answer question`
+          );
+        }
       }
     }
-  }
-}, [needsWrapUp, sentWrapUp, vapiInstance, assistantLive, candidateLive]);
+  }, [
+    needsWrapUp,
+    sentWrapUp,
+    vapiInstance,
+    assistantLive,
+    candidateLive,
+    lastQuestionTime,
+  ]);
 
+  // 🎬 Send final closing message in last 10 seconds
+  useEffect(() => {
+    if (remaining === 10 && !sentFinalMessage && vapiInstance) {
+      setSentFinalMessage(true);
 
+      // Wait 2-3 seconds for any ongoing conversation to pause
+      setTimeout(() => {
+        try {
+          vapiInstance.send({
+            type: "add-message",
+            message: {
+              role: "system",
+              content:
+                'Take a brief pause, then deliver a professional closing message: "Thank you for your time today. This concludes our interview. We will review your responses and get back to you within the next few days. Have a great day!"',
+            },
+          });
+          console.log("🎯 Final closing message sent");
+        } catch (err) {
+          console.error("⚌ Failed to send final message:", err);
+        }
+      }, 2500); // 2.5 second pause before final message
+    }
+  }, [remaining, sentFinalMessage, vapiInstance]);
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true;
@@ -197,53 +288,60 @@ useEffect(() => {
   const pushChat = (role, text) => {
     // Ensure text is always a string
     const textToPush = typeof text === "string" ? text : JSON.stringify(text);
-    setChat((prev) => [...prev, { role, text: textToPush, id: prev.length + 1 }]);
+    setChat((prev) => [
+      ...prev,
+      { role, text: textToPush, id: prev.length + 1 },
+    ]);
   };
 
- const startInterview = async () => {
-  if (!window.vapiSDK) {
-    setStatus("Failed to load interview SDK");
-    return;
-  }
+  const startInterview = async () => {
+    if (!window.vapiSDK) {
+      setStatus("Failed to load interview SDK");
+      return;
+    }
 
-  setIsInterviewing(true);
-  await startCamera();
+    setIsInterviewing(true);
+    await startCamera();
+    setSentWrapUp(false);
+    setNeedsWrapUp(false);
+    setSentFinalMessage(false);
+    setLastQuestionTime(null);
 
-  const instance = window.vapiSDK.run({
-    apiKey: config.apiKey,
-    assistant: config.assistantId, // Use dynamic assistantId here
-    config: config.buttonConfig,
-    onCallStart: (callData) => {
-      console.log("SDK call data:", callData);  // Log entire callData for debugging
+    const instance = window.vapiSDK.run({
+      apiKey: config.apiKey,
+      assistant: config.assistantId, // Use dynamic assistantId here
+      config: config.buttonConfig,
+      onCallStart: (callData) => {
+        console.log("SDK call data:", callData); // Log entire callData for debugging
 
-      if (callData?.id) {
-        console.log("Storing call ID:", callData.id);
-        // Store the call ID in both sessionStorage and localStorage
-        sessionStorage.setItem("callId", callData.id);
-        localStorage.setItem("callId", callData.id);  // Store in localStorage as well
-      } else {
-        console.error("Call ID not found in SDK response.");
-      }
+        if (callData?.id) {
+          console.log("Storing call ID:", callData.id);
+          // Store the call ID in both sessionStorage and localStorage
+          sessionStorage.setItem("callId", callData.id);
+          localStorage.setItem("callId", callData.id); // Store in localStorage as well
+        } else {
+          console.error("Call ID not found in SDK response.");
+        }
 
-      if (callData?.monitor?.listenUrl) {
-  console.log("Storing listenUrl:", callData.monitor.listenUrl);
-  sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
-}
+        if (callData?.monitor?.listenUrl) {
+          console.log("Storing listenUrl:", callData.monitor.listenUrl);
+          sessionStorage.setItem("listenUrl", callData.monitor.listenUrl);
+        }
 
-if (callData?.monitor?.controlUrl) {
-  console.log("Storing controlUrl:", callData.monitor.controlUrl);
-  localStorage.setItem("controlUrl", callData.monitor.controlUrl);
-}
+        if (callData?.monitor?.controlUrl) {
+          console.log("Storing controlUrl:", callData.monitor.controlUrl);
+          localStorage.setItem("controlUrl", callData.monitor.controlUrl);
+        }
 
-
-      instance.setState("active"); // instant "End Interview"
-    },
-  });
- 
+        instance.setState("active"); // instant "End Interview"
+      },
+    });
 
     // Debug logs
     const dbg = (name, ...args) => console.log(`[vapi:${name}]`, ...args);
-    ["message", "call-start", "call-end", "error"].forEach((evt) => instance.on?.(evt, (...a) => dbg(evt, ...a)));
+    ["message", "call-start", "call-end", "error"].forEach((evt) =>
+      instance.on?.(evt, (...a) => dbg(evt, ...a))
+    );
 
     // Client events: both roles
     instance.on?.("message", (raw) => {
@@ -356,9 +454,9 @@ if (callData?.monitor?.controlUrl) {
       wsRef.current = null;
       setVapiInstance(null);
       stopCamera();
-      
+
       setButtonTitle("Interview Ended");
-     window.location.href = "/interview/thank-you";// Redirect to home or another page
+      window.location.href = "/interview/thank-you"; // Redirect to home or another page
     });
 
     instance.on("error", (error) => {
@@ -389,7 +487,9 @@ if (callData?.monitor?.controlUrl) {
           <div className="absolute top-3 right-3">
             <div className="flex items-center gap-2 bg-white border border-[#00adb5]/40 rounded-full px-3 py-1 shadow-sm">
               <span className="text-lg">⏱</span>
-              <span className="font-mono font-bold text-[#00adb5]">{mmss(remaining)}</span>
+              <span className="font-mono font-bold text-[#00adb5]">
+                {mmss(remaining)}
+              </span>
             </div>
           </div>
         )}
@@ -397,8 +497,10 @@ if (callData?.monitor?.controlUrl) {
         {/* EXACT 50/50 split */}
         <div className="grid grid-cols-1 md:grid-cols-[50%_50%]">
           {/* LEFT: Title + divider + chat */}
-          <div className="p-8 md:p-10 bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none
-                          border-b md:border-b-0 md:border-r border-[#00adb5]/20">
+          <div
+            className="p-8 md:p-10 bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none
+                          border-b md:border-b-0 md:border-r border-[#00adb5]/20"
+          >
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
               <span className="text-[#00adb5]">NEX AI</span>{" "}
               {/* <span className="text-[#f5540f]">NEX AI</span>{" "} */}
@@ -424,7 +526,9 @@ if (callData?.monitor?.controlUrl) {
                   return (
                     <li
                       key={m.id}
-                      className={`flex items-end gap-2 ${isAssistant ? "justify-start" : "justify-end"}`}
+                      className={`flex items-end gap-2 ${
+                        isAssistant ? "justify-start" : "justify-end"
+                      }`}
                     >
                       {/* Assistant: avatar on left, user: avatar on right */}
                       {isAssistant && (
@@ -438,19 +542,19 @@ if (callData?.monitor?.controlUrl) {
                       {/* Bubble */}
                       <div
                         className={`max-w-[80%] rounded-2xl px-3 py-2 text-[15px] leading-relaxed
-                          ${isAssistant
-                            ? "bg-[#E6FAFB] text-[#0f172a] border border-[#00adb5]/40"
-                            : "bg-[#00adb5] text-white"
+                          ${
+                            isAssistant
+                              ? "bg-[#E6FAFB] text-[#0f172a] border border-[#00adb5]/40"
+                              : "bg-[#00adb5] text-white"
                           }`}
                       >
                         {/* Ensure m.text is always a string */}
-                        {typeof m.text === "string" ? m.text : JSON.stringify(m.text)}
+                        {typeof m.text === "string"
+                          ? m.text
+                          : JSON.stringify(m.text)}
                       </div>
 
-                      {!isAssistant && (
-                        <div >
-                        </div>
-                      )}
+                      {!isAssistant && <div></div>}
                     </li>
                   );
                 })}
@@ -482,12 +586,22 @@ if (callData?.monitor?.controlUrl) {
           </div>
 
           {/* RIGHT: Camera (unchanged) */}
-          <div className="p-8 md:p-10 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none
-                          border-t md:border-t-0 border-[#00adb5]/20">
+          <div
+            className="p-8 md:p-10 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none
+                          border-t md:border-t-0 border-[#00adb5]/20"
+          >
             <div className="rounded-xl overflow-hidden border border-[#00adb5]/30 bg-white">
-              <div className="bg-[#00adb5] text-white text-sm px-3 py-2">Camera Preview</div>
+              <div className="bg-[#00adb5] text-white text-sm px-3 py-2">
+                Camera Preview
+              </div>
               <div className="w-full bg-white" style={{ height: "28rem" }}>
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                ></video>
               </div>
             </div>
           </div>
