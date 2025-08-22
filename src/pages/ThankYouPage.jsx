@@ -35,10 +35,8 @@ const ThankYouPage = () => {
   const chartRef = useRef(null);
 
   useEffect(() => {
-  handleViewReport();
-}, []);
-
-  
+    handleViewReport();
+  }, []);
 
   useEffect(() => {
     const analyzeTimer = setTimeout(() => setPhase(1), 5000);
@@ -50,114 +48,106 @@ const ThankYouPage = () => {
   }, []);
 
   const handleViewReport = async () => {
-  setLoading(true);
-  setError(null);
-  setSuccess(null);
-  setReport(null);
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    setReport(null);
 
-  try {
-    const assistantId = localStorage.getItem("assistantId");
-    const resumeId    = localStorage.getItem("resumeId");
-    const bearerToken = import.meta.env.VITE_PRIVATE_API_KEY;
+    try {
+      const assistantId = localStorage.getItem("assistantId");
+      const resumeId    = localStorage.getItem("resumeId");
+      const bearerToken = import.meta.env.VITE_PRIVATE_API_KEY;
 
-    if (!assistantId || !resumeId) {
-      setError("Missing assistantId or resumeId");
+      if (!assistantId || !resumeId) {
+        setError("Missing assistantId or resumeId");
+        setLoading(false);
+        return;
+      }
+
+      const storedCallId = localStorage.getItem("callId"); // optional
+
+      const endedCallId = await waitForEndedCall({
+        assistantId,
+        bearerToken,
+        targetCallId: storedCallId || null, 
+        timeoutMs: 120000,                  
+        intervalMs: 3000,                   
+      });
+
+      const reportRes = await axios.post(
+        `https://nexai.qwiktrace.com/api/interview/fetch/${endedCallId}/`,
+        { resume_id: resumeId },
+        { headers: { Authorization: `Bearer ${bearerToken}` } }
+      );
+
+      if (!reportRes?.data?.report) {
+        throw new Error("Report not available in response");
+      }
+
+      setReport(reportRes.data.report);
+      setSuccess("The report has been successfully fetched!");
+    } catch (e) {
+      console.error(e);
+      setError(e?.message || "There was an error processing the interview report.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // If you saved the callId when the interview started/ended, read it here.
-    // It's more reliable than picking calls[0].
-    const storedCallId = localStorage.getItem("callId"); // optional
-
-    // 1) Wait until the relevant call is ENDED
-    const endedCallId = await waitForEndedCall({
-      assistantId,
-      bearerToken,
-      targetCallId: storedCallId || null,  // use if available
-      timeoutMs: 120000,                   // 2 minutes (tweak if needed)
-      intervalMs: 3000,                    // poll every 3s
-    });
-
-    // 2) Now fetch the report for that ended call
-    const reportRes = await axios.post(
-      `https://nexai.qwiktrace.com/api/interview/fetch/${endedCallId}/`,
-      { resume_id: resumeId },
-      { headers: { Authorization: `Bearer ${bearerToken}` } }
-    );
-
-    if (!reportRes?.data?.report) {
-      throw new Error("Report not available in response");
-    }
-
-    setReport(reportRes.data.report);
-    setSuccess("The report has been successfully fetched!");
-  } catch (e) {
-    console.error(e);
-    setError(e?.message || "There was an error processing the interview report.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const handleDownloadPDF = () => {
-  const doc = new jsPDF();
-  doc.setFontSize(18);
-  doc.text("Interview Report", 14, 20);
-  doc.setFontSize(12);
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Interview Report", 14, 20);
+    doc.setFontSize(12);
 
-  // Candidate Info
-  autoTable(doc, {
-    startY: 30,
-    head: [["Candidate Name", "Position", "Overall Score"]],
-    body: [[report.candidate_name, report.position, report.overall_score]],
-  });
-
-  // Strengths
-  if (report.overall_strengths?.length) {
     autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 10,
-      head: [["Overall Strengths"]],
-      body: report.overall_strengths.map((s) => [s]),
+      startY: 30,
+      head: [["Candidate Name", "Position", "Overall Score"]],
+      body: [[report.candidate_name, report.position, report.overall_score]],
     });
-  }
 
-  // Improvements
-  if (report.overall_improvements?.length) {
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 10,
-      head: [["Overall Improvements"]],
-      body: report.overall_improvements.map((imp) => [imp]),
-    });
-  }
+    if (report.overall_strengths?.length) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [["Overall Strengths"]],
+        body: report.overall_strengths.map((s) => [s]),
+      });
+    }
 
-  // Recommendations
-  if (report.recommendations?.length) {
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 10,
-      head: [["Recommendations"]],
-      body: report.recommendations.map((r) => [r]),
-    });
-  }
+    if (report.overall_improvements?.length) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [["Overall Improvements"]],
+        body: report.overall_improvements.map((imp) => [imp]),
+      });
+    }
 
-   // ✅ Add Chart Image
-  if (chartRef.current) {
-    const chartImage = chartRef.current.toBase64Image();
-    doc.addPage();
-    doc.text("Skills Chart", 14, 20);
-    doc.addImage(chartImage, "PNG", 15, 30, 180, 160);
-  }
+    if (report.recommendations?.length) {
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [["Recommendations"]],
+        body: report.recommendations.map((r) => [r]),
+      });
+    }
 
-  doc.save(`${report.candidate_name}_InterviewReport.pdf`);
-};
+    if (chartRef.current) {
+      const chartImage = chartRef.current.toBase64Image();
+      doc.addPage();
+      doc.text("Skills Chart", 14, 20);
+      doc.addImage(chartImage, "PNG", 15, 30, 180, 160);
+    }
 
-  const Spinner = () => (
+    doc.save(`${report.candidate_name}_InterviewReport.pdf`);
+  };
+
+  // ✅ Updated Spinner (full-screen overlay style)
+  const Spinner = ({ className = "" }) => (
     <svg
-      className="animate-spin h-5 w-5 text-[#00adb5] inline-block ml-2"
+      className={`animate-spin h-10 w-10 text-[#00adb5] ${className}`}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
+      aria-hidden="true"
     >
       <circle
         className="opacity-25"
@@ -216,79 +206,73 @@ const ThankYouPage = () => {
     maintainAspectRatio: false,
   };
 
-  // Poll Vapi until there's an ENDED call for this assistant (or a specific callId)
-async function waitForEndedCall({ assistantId, bearerToken, targetCallId = null, timeoutMs = 120000, intervalMs = 3000 }) {
-  const start = Date.now();
+  async function waitForEndedCall({ assistantId, bearerToken, targetCallId = null, timeoutMs = 120000, intervalMs = 3000 }) {
+    const start = Date.now();
 
-  while (Date.now() - start < timeoutMs) {
-    const res = await fetch(`https://api.vapi.ai/call?assistantId=${assistantId}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${bearerToken}`,
-        "Content-Type": "application/json",
-      },
-    });
+    while (Date.now() - start < timeoutMs) {
+      const res = await fetch(`https://api.vapi.ai/call?assistantId=${assistantId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${bearerToken}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (!res.ok) throw new Error(`Vapi /call failed with ${res.status}`);
+      if (!res.ok) throw new Error(`Vapi /call failed with ${res.status}`);
 
-    const calls = await res.json();
-    if (Array.isArray(calls) && calls.length) {
-      // If you saved callId at start/end, prefer that exact call
-      let candidate = null;
+      const calls = await res.json();
+      if (Array.isArray(calls) && calls.length) {
+        let candidate = null;
 
-      if (targetCallId) {
-        candidate = calls.find(c => c.id === targetCallId);
-      } else {
-        // otherwise, take the most recent ENDED call for this assistant
-        const ended = calls
-          .filter(c => c.status === "ended" || c.endedAt)
-          .sort((a, b) => new Date(b.updatedAt || b.endedAt || b.createdAt) - new Date(a.updatedAt || a.endedAt || a.createdAt));
-        if (ended.length) candidate = ended[0];
+        if (targetCallId) {
+          candidate = calls.find(c => c.id === targetCallId);
+        } else {
+          const ended = calls
+            .filter(c => c.status === "ended" || c.endedAt)
+            .sort((a, b) => new Date(b.updatedAt || b.endedAt || b.createdAt) - new Date(a.updatedAt || a.endedAt || a.createdAt));
+          if (ended.length) candidate = ended[0];
+        }
+
+        if (candidate && (candidate.status === "ended" || candidate.endedAt)) {
+          return candidate.id;
+        }
       }
 
-      if (candidate && (candidate.status === "ended" || candidate.endedAt)) {
-        return candidate.id;
-      }
+      await new Promise(r => setTimeout(r, intervalMs));
     }
 
-    // wait and try again
-    await new Promise(r => setTimeout(r, intervalMs));
+    throw new Error("Timed out waiting for call to end");
   }
 
-  throw new Error("Timed out waiting for call to end");
-}
 
+  const showOverlay = !report && !error;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center px-8 py-4">
+    <div className="relative min-h-screen bg-gray-100 flex items-center justify-center">
+      {/* ✅ Full-screen Loader Overlay */}
+      {showOverlay && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <Spinner />
+          <p className="mt-4 text-lg font-medium text-gray-800">
+            Generating your interview report…
+          </p>
+          <p className="mt-1 text-sm text-gray-600">
+            Analyzing answers, scoring skills, and compiling insights
+          </p>
+        </div>
+      )}
+
+      <div className="text-center px-8 py-4 w-full max-w-5xl">
         <h1 className="text-4xl font-extrabold text-black">
           Your Interview is Complete!
         </h1>
         <div className="mt-4">
           {success && <p className="text-black">{success}</p>}
           {error && <p className="text-black">{error}</p>}
-
-          {phase === 0 && (
-            <p className="mt-6 text-lg text-gray-700">
-              Analyzing your interview... <Spinner />
-            </p>
-          )}
-          {phase === 1 && (
-            <p className="mt-6 text-lg text-gray-700">
-              Preparing report... <Spinner />
-            </p>
-          )}
-
-          {/* {phase === 2 && !report && (
-            <button
-              onClick={handleViewReport}
-              className="mt-6 px-6 py-3 text-white bg-[#00adb5] rounded-lg hover:bg-[#009ba2]"
-              disabled={loading}
-            >
-              {loading ? "Generating..." : "View Report"}
-            </button>
-          )} */}
 
           {report && (
             <div className="mt-6 border rounded-lg shadow-lg bg-white p-6 text-left">
@@ -351,7 +335,6 @@ async function waitForEndedCall({ assistantId, bearerToken, targetCallId = null,
                 </div>
               </div>
 
-              {/* Button at the bottom */}
               <div className="flex justify-center">
                 <button
                   onClick={handleDownloadPDF}
