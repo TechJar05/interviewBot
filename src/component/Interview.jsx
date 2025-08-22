@@ -139,7 +139,7 @@ const InterviewBot = () => {
     );
 
   // Timer controls
-  const startTimer = (seconds = 180) => {
+  const startTimer = (seconds = 600) => {
     setRemaining(seconds);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -457,7 +457,7 @@ useEffect(() => {
     // Timer + optional server monitor
     instance.on("call-start", () => {
       setStatus("Interview in progress...");
-      startTimer(180);
+      startTimer(600);
 
       const url = sessionStorage.getItem("listenUrl");
       if (!url) return;
