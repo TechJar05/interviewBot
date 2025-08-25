@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import botImage from "../assets/botImage.png"; // small DP for assistant bubbles
 import axios from "axios";
@@ -186,95 +187,31 @@ const InterviewBot = () => {
     };
   }, [assistantId]);
 
-// ============= ENHANCED QUESTION DETECTION =============
-// Track when assistant asks a question in final chat messages
+// ============= 1-MINUTE RED TOAST ALERT =============
+// 🔔 Show red toast exactly at 60 seconds remaining
 useEffect(() => {
-  if (chat.length > 0) {
-    const lastMessage = chat[chat.length - 1];
-    if (lastMessage.role === 'assistant' && lastMessage.text.includes('?')) {
-      setLastQuestionTime(Date.now());
-      console.log("📝 Question detected in final message at", new Date().toLocaleTimeString(), "- remaining seconds:", remaining);
-    }
-  }
-}, [chat]);
-
-// Track when assistant asks a question in live speech
-useEffect(() => {
-  if (assistantLive && assistantLive.includes('?')) {
-    setLastQuestionTime(Date.now());
-    console.log("📝 Question detected in live speech at", new Date().toLocaleTimeString(), "- remaining seconds:", remaining);
-  }
-}, [assistantLive]);
-
-// ============= IMPROVED 1-MINUTE WARNING LOGIC =============
-// 🔔 Trigger warning exactly at 60 seconds remaining
-useEffect(() => {
-  if (remaining === 60 && !sentWrapUp) {
-    console.log("⏰ EXACTLY 60 seconds remaining - initiating 1-minute warning protocol");
+  if (remaining === 60) {
+    console.log("⏰ EXACTLY 60 seconds remaining - showing red toast alert");
     
-    // Check if we just asked a question (within last 12 seconds - covers the 1:06 to 0:54 scenario)
-    const timeSinceLastQuestion = lastQuestionTime ? Date.now() - lastQuestionTime : Infinity;
-    const recentQuestionThreshold = 12000; // 12 seconds to handle your 1:06 to 0:54 scenario
-    
-    if (timeSinceLastQuestion <= recentQuestionThreshold) {
-      console.log(`⚠️ Question was asked ${Math.ceil(timeSinceLastQuestion/1000)}s ago - waiting for answer before warning`);
-      setNeedsWrapUp(true);
-    } else {
-      // No recent question, send warning immediately
-      sendOneMinuteWarning();
-    }
+    // Show red toast notification
+    toast.error("Alert! Last one minute remaining", {
+      duration: 5000,
+      style: {
+        background: '#ef4444',
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: '16px'
+      },
+      icon: '⚠️'
+    });
   }
-}, [remaining, sentWrapUp, lastQuestionTime]);
+}, [remaining]);
 
-// Function to send the 1-minute warning
-const sendOneMinuteWarning = () => {
-  if (!sentWrapUp && vapiInstance) {
-    setSentWrapUp(true);
-    setNeedsWrapUp(false);
-    
-    try {
-      vapiInstance.send({
-        type: 'add-message',
-        message: {
-          role: 'system',
-          content: 'GENTLE WARNING: We have about 1 minute remaining in our interview. Please allow the candidate to finish their current thought if they are speaking, then gracefully begin wrapping up. No new questions should be asked from this point forward. Focus on concluding remarks.'
-        }
-      });
-      console.log("🔔 1-minute warning sent gracefully at", new Date().toLocaleTimeString());
-    } catch (err) {
-      console.error("⚌ Failed to send 1-minute warning:", err);
-    }
-  }
-};
-
-// ============= SMART WRAP-UP TIMING =============
-// Handle wrap-up when there's a recent question that needs answering
-useEffect(() => {
-  if (needsWrapUp && !sentWrapUp && vapiInstance) {
-    const timeSinceQuestion = lastQuestionTime ? Date.now() - lastQuestionTime : Infinity;
-    const minAnswerTime = 20000; // Give candidate 20 seconds to answer
-    const maxWaitTime = 30000;   // But don't wait more than 30 seconds total
-    
-    // Check if we're in a natural conversation break
-    const inNaturalBreak = !assistantLive && !candidateLive;
-    
-    if (inNaturalBreak) {
-      if (timeSinceQuestion >= minAnswerTime || timeSinceQuestion >= maxWaitTime) {
-        console.log(`⚡ Sending 1-minute warning after ${Math.ceil(timeSinceQuestion/1000)}s wait`);
-        sendOneMinuteWarning();
-      } else {
-        const waitTimeLeft = Math.ceil((minAnswerTime - timeSinceQuestion) / 1000);
-        console.log(`⏳ Natural break detected, waiting ${waitTimeLeft}s more for complete answer`);
-      }
-    }
-  }
-}, [needsWrapUp, sentWrapUp, vapiInstance, assistantLive, candidateLive, lastQuestionTime]);
-
-// ============= ENHANCED 15-SECOND INTERRUPTION =============
-// 🚨 Interrupt gracefully at exactly 15 seconds remaining
+// ============= 15-SECOND MANDATORY INTERRUPTION =============
+// 🚨 Interrupt gracefully at exactly 15 seconds remaining (NO MATTER WHO IS TALKING)
 useEffect(() => {
   if (remaining === 15 && !sentFinalMessage) {
-    console.log("🚨 EXACTLY 15 seconds remaining - initiating polite interruption");
+    console.log("🚨 EXACTLY 15 seconds remaining - initiating mandatory polite interruption");
     setSentFinalMessage(true);
     
     if (vapiInstance) {
@@ -283,7 +220,7 @@ useEffect(() => {
           type: 'add-message',
           message: {
             role: 'system',
-            content: 'POLITE INTERRUPTION REQUIRED: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time today. This concludes our interview. We will review your responses and get back to you soon You can end the interview now. Have a great day!" Speak warmly but efficiently.'
+            content: 'POLITE INTERRUPTION REQUIRED: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time today. This concludes our interview. We will review your responses and get back to you soon. You can end the interview now. Have a great day!" Speak warmly but efficiently.'
           }
         });
         console.log("🎯 15-second interruption message sent at", new Date().toLocaleTimeString());
@@ -293,34 +230,6 @@ useEffect(() => {
     }
   }
 }, [remaining, sentFinalMessage, vapiInstance]);
-
-// // ============= BACKUP FINAL SAFETY NET =============
-// // 🔒 Ultimate backup at 5 seconds (hard stop)
-// useEffect(() => {
-//   if (remaining === 5 && vapiInstance) {
-//     console.log("🔒 BACKUP SAFETY NET - 5 seconds remaining");
-    
-//     try {
-//       vapiInstance.send({
-//         type: 'add-message',
-//         message: {
-//           role: 'system',
-//           content: 'HARD STOP: Immediately say "Thank you, goodbye!" and end the interview now. No additional content.'
-//         }
-//       });
-//       console.log("🛑 Emergency hard stop triggered at 5 seconds");
-//     } catch (err) {
-//       console.error("⚌ Failed to send emergency stop:", err);
-//     }
-//   }
-// }, [remaining, vapiInstance]);
-
-// ============= TIMING DIAGNOSTICS (Optional - for debugging) =============
-useEffect(() => {
-  if (remaining <= 60 && remaining % 10 === 0) { // Log every 10 seconds in final minute
-    console.log(`⏱️ TIMING CHECK: ${remaining}s remaining | Last question: ${lastQuestionTime ? Math.ceil((Date.now() - lastQuestionTime)/1000) + 's ago' : 'none'} | Wrap-up sent: ${sentWrapUp} | Final sent: ${sentFinalMessage}`);
-  }
-}, [remaining, lastQuestionTime, sentWrapUp, sentFinalMessage]);
 
 
   const startCamera = async () => {
