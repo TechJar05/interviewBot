@@ -84,16 +84,9 @@ function Layout() {
       </Routes>
        {/* Add Toaster here - OUTSIDE of Routes */}
       <Toaster 
-        position="top-right"
+        position="top-center"
         reverseOrder={false}
         gutter={8}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-          },
-        }}
       />
     </>
   );
