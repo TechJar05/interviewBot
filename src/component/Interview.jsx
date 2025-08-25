@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import botImage from "../assets/botImage.png"; // small DP for assistant bubbles
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import toast from 'react-hot-toast';
 
 import { useLocation } from "react-router-dom";
 
