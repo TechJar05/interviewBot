@@ -43,6 +43,7 @@ import Header from './component/Header';
 import ThankYouPage from './pages/ThankYouPage';
 import InterviewBot from './component/Interview';
 import Report from './pages/Report';
+import toast, { Toaster } from 'react-hot-toast';
 
 function Layout() {
   const location = useLocation();
@@ -74,11 +75,26 @@ function Layout() {
       {location.pathname !== '/interview/interview-started' && <Header />}
 
       <Routes>
+      <Toaster>
         <Route path="/interview/:id" element={<Setup />} />
         <Route path="/interview/interview-started" element={<InterviewBot />} />
         <Route path="/interview/thank-you" element={<ThankYouPage />} />
         <Route path="/interview/report" element={<Report />} />
+        </Toaster>
       </Routes>
+       {/* Add Toaster here - OUTSIDE of Routes */}
+      <Toaster 
+        position="top-right"
+        reverseOrder={false}
+        gutter={8}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+        }}
+      />
     </>
   );
 }
