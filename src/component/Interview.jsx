@@ -221,7 +221,7 @@ useEffect(() => {
           type: 'add-message',
           message: {
             role: 'system',
-            content: 'POLITE INTERRUPTION REQUIRED: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time today. This concludes our interview. We will review your responses and get back to you soon. You can end the interview now. Have a great day!" Speak warmly but efficiently.'
+            content: 'POLITE/harsh INTERRUPTION REQUIRED: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time today. This concludes our interview. We will review your responses and get back to you soon. Have a great day!" Speak warmly but efficiently.'
           }
         });
         console.log("🎯 15-second interruption message sent at", new Date().toLocaleTimeString());
@@ -449,13 +449,13 @@ useEffect(() => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#0f172a] px-4 py-8 flex items-center justify-center">
+    <div className="min-h-screen bg-white text-[#0f172a] px-1 py-5 flex items-center justify-center">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="relative w-full max-w-6xl bg-white border-[3px] border-[#00adb5]/40 rounded-3xl shadow-sm"
-      >
+className="relative w-full max-w-5xl bg-white border-[3px] border-[#00adb5]/40 rounded-3xl shadow-sm
+            max-h-[92svh] overflow-hidden"      >
         {/* ⏱️ Timer top-right */}
         {remaining !== null && (
           <div className="absolute top-3 right-3">
@@ -472,7 +472,7 @@ useEffect(() => {
         <div className="grid grid-cols-1 md:grid-cols-[50%_50%]">
           {/* LEFT: Title + divider + chat */}
           <div
-            className="p-8 md:p-10 bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none
+            className="p-6 md:p-8 bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none
                           border-b md:border-b-0 md:border-r border-[#00adb5]/20"
           >
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
@@ -492,7 +492,11 @@ useEffect(() => {
             )}
 
             {/* Chat area — fixed height, scrolls internally to avoid layout shifts */}
-            <div ref={chatRef} className="h-[28rem] overflow-auto pr-1">
+            <div
+  ref={chatRef}
+  className="overflow-auto pr-1
+             h-[48svh] md:h-[22rem] lg:h-[24rem]"
+>
               {/* Render final messages in order */}
               <ul className="space-y-3">
                 {chat.map((m) => {
@@ -561,7 +565,7 @@ useEffect(() => {
 
           {/* RIGHT: Camera (unchanged) */}
           <div
-            className="p-8 md:p-10 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none
+            className="p-6 md:p-8 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none
                           border-t md:border-t-0 border-[#00adb5]/20"
           >
             <div className="rounded-xl overflow-hidden border border-[#00adb5]/30 bg-white">
