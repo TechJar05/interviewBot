@@ -18,10 +18,10 @@ const InterviewBot = () => {
   const location = useLocation();
   const { interviewData } = location.state || {};
 
-  const [sentWrapUp, setSentWrapUp] = useState(false);
-  const [needsWrapUp, setNeedsWrapUp] = useState(false);
+  // const [sentWrapUp, setSentWrapUp] = useState(false);
+  // const [needsWrapUp, setNeedsWrapUp] = useState(false);
   const [sentFinalMessage, setSentFinalMessage] = useState(false);
-  const [lastQuestionTime, setLastQuestionTime] = useState(null);
+  // const [lastQuestionTime, setLastQuestionTime] = useState(null);
 //   const [sentPreClose, setSentPreClose] = useState(false);
 
 //   const [finalAnswerDetected, setFinalAnswerDetected] = useState(false);
@@ -276,10 +276,10 @@ useEffect(() => {
 
     setIsInterviewing(true);
     await startCamera();
-    setSentWrapUp(false);
-    setNeedsWrapUp(false);
+    // setSentWrapUp(false);
+    // setNeedsWrapUp(false);
     setSentFinalMessage(false);
-    setLastQuestionTime(null);
+    // setLastQuestionTime(null);
 
     const instance = window.vapiSDK.run({
       apiKey: config.apiKey,
