@@ -19,6 +19,8 @@ const InterviewBot = () => {
   const { interviewData } = location.state || {};
 
   const [sentClosingQuestions, setSentClosingQuestions] = useState(false);
+
+
   // const [sentWrapUp, setSentWrapUp] = useState(false);
   // const [needsWrapUp, setNeedsWrapUp] = useState(false);
   const [sentFinalMessage, setSentFinalMessage] = useState(false);
@@ -187,8 +189,7 @@ const InterviewBot = () => {
     };
   }, [assistantId]);
 
-
-  // ============= 120-SECOND CLOSING QUESTIONS TRIGGER =============
+// ============= 120-SECOND CLOSING QUESTIONS TRIGGER =============
 // 🎯 Start closing questions at exactly 120 seconds (2 minutes) remaining
 useEffect(() => {
   if (remaining === 120 && !sentClosingQuestions) {
@@ -199,28 +200,37 @@ useEffect(() => {
       try {
         const closingQuestions = [
           "Is there anything we haven't covered that you'd like us to know about you?",
-          "Do you have any concerns about the role or company that we can clarify?",
+          "Do you have any concerns about the role or company that we can clarify?", 
           "Where do you see yourself in the next few years, and how does this role fit into that?",
           "How do you feel about the responsibilities we've discussed today?",
-          "What motivates you most about this opportunity?",
           "Do you feel this role aligns with your career goals?"
         ];
 
-        // Pick a random closing question or use a specific one
-        const selectedQuestion = closingQuestions[Math.floor(Math.random() * closingQuestions.length)];
+        // Provide all questions but don't make them mandatory
+        const questionsText = closingQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n');
 
         vapiInstance.send({
           type: "add-message",
           message: {
             role: "system",
-            content: `CLOSING PHASE INITIATED: We're now in the final 120 seconds. Transition smoothly to closing questions. Ask: "${selectedQuestion}" Give the candidate time to respond, but keep answers focused. If time permits after their response, you may ask one more brief closing question from this list: ${closingQuestions.join('; ')}. Keep the tone warm but time-conscious.`,
+            content: `CLOSING PHASE INITIATED: We're now in the final 2 minutes. Transition smoothly and say something like: "We're approaching the end of our interview, so I'd like to ask you a few final questions."
+
+Here are closing questions you can ask (ask as many as time permits, IN ORDER):
+${questionsText}
+
+IMPORTANT INSTRUCTIONS:
+- Start with question 1 and move through them in order
+- Ask as many questions as time allows (NOT mandatory to ask all)
+- Keep candidate responses focused (30-45 seconds max per answer)
+
+- Be warm but time-conscious
+- Stop asking questions when you reach the 15-second mark for interview conclusion`,
           },
         });
+        
         console.log(
-          "🎯 120-second closing questions message sent at",
-          new Date().toLocaleTimeString(),
-          "Selected question:",
-          selectedQuestion
+          "🎯 120-second closing questions phase initiated at",
+          new Date().toLocaleTimeString()
         );
       } catch (err) {
         console.error("⚌ Failed to send 120-second closing questions:", err);
@@ -229,55 +239,72 @@ useEffect(() => {
   }
 }, [remaining, sentClosingQuestions, vapiInstance]);
 
+// ============= 1-MINUTE RED TOAST ALERT =============
+// 🔔 Show red toast exactly at 60 seconds remaining
+useEffect(() => {
+  if (remaining === 60) {
+    console.log("⏰ EXACTLY 60 seconds remaining - showing red toast alert");
 
-  // ============= 1-MINUTE RED TOAST ALERT =============
-  // 🔔 Show red toast exactly at 60 seconds remaining
-  useEffect(() => {
-    if (remaining === 60) {
-      console.log("⏰ EXACTLY 60 seconds remaining - showing red toast alert");
+    // Show red toast notification
+    toast.error("Alert! Last one minute remaining", {
+      duration: 5000,
+      style: {
+        background: "#ef4444",
+        color: "white",
+        fontWeight: "bold",
+        fontSize: "16px",
+      },
+      icon: "⚠️",
+    });
+  }
+}, [remaining]);
 
-      // Show red toast notification
-      toast.error("Alert! Last one minute remaining", {
-        duration: 5000,
-        style: {
-          background: "#ef4444",
-          color: "white",
-          fontWeight: "bold",
-          fontSize: "16px",
-        },
-        icon: "⚠️",
-      });
-    }
-  }, [remaining]);
-
-  // ============= 15-SECOND MANDATORY FORCEFUL INTERRUPTION =============
-// 🚨 Forcefully interrupt using .say() method at exactly 15 seconds remaining
+// ============= 15-SECOND MANDATORY FORCEFUL INTERRUPTION =============
+// 🚨 Multiple methods to ensure forceful interruption
 useEffect(() => {
   if (remaining === 15 && !sentFinalMessage) {
-    console.log(
-      "🚨 EXACTLY 15 seconds remaining - initiating FORCEFUL interruption with .say()"
-    );
+    console.log("🚨 EXACTLY 15 seconds remaining - EXECUTING FORCEFUL INTERRUPTION");
     setSentFinalMessage(true);
 
     if (vapiInstance) {
+      // Method 1: Try to stop current speech immediately
       try {
-        // Use .say() method to forcefully interrupt and speak immediately
-        vapiInstance.say(
-          "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!"
-        );
-
-        console.log(
-          "🎯 15-second FORCEFUL interruption executed with .say() at",
-          new Date().toLocaleTimeString()
-        );
-
+        console.log("🛑 Attempting to stop current speech...");
+        vapiInstance.stop();
       } catch (err) {
-        console.error("⚌ Failed to execute .say() interruption:", err);
+        console.error("Failed to stop speech:", err);
       }
+
+      // Method 2: Use .say() with a slight delay to ensure stop() takes effect
+      setTimeout(() => {
+        try {
+          console.log("🎯 Executing .say() interruption...");
+          vapiInstance.say(
+            "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!",
+            true // End call after speaking
+          );
+          console.log("✅ .say() interruption executed at", new Date().toLocaleTimeString());
+        } catch (err) {
+          console.error("⚌ .say() method failed:", err);
+          
+          // Method 3: Fallback with system message
+          try {
+            console.log("🔄 Trying fallback system message...");
+            vapiInstance.send({
+              type: "add-message",
+              message: {
+                role: "system",
+                content: 'EMERGENCY INTERRUPTION: STOP IMMEDIATELY AND SAY: "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!" This overrides everything - speak now!',
+              },
+            });
+          } catch (fallbackErr) {
+            console.error("⚌ All interruption methods failed:", fallbackErr);
+          }
+        }
+      }, 200); // 200ms delay to ensure stop() takes effect
     }
   }
 }, [remaining, sentFinalMessage, vapiInstance]);
-  
 
   const startCamera = async () => {
     try {
