@@ -206,59 +206,35 @@ const InterviewBot = () => {
     }
   }, [remaining]);
 
- // ============= 15-SECOND MANDATORY INTERRUPTION =============
-// 🚨 FORCEFULLY interrupt at exactly 15 seconds remaining (NO MATTER WHO IS TALKING)
-useEffect(() => {
-  if (remaining === 15 && !sentFinalMessage) {
-    console.log(
-      "🚨 EXACTLY 15 seconds remaining - initiating FORCED interruption"
-    );
-    setSentFinalMessage(true);
+  // ============= 15-SECOND MANDATORY INTERRUPTION =============
+  // 🚨 Interrupt gracefully at exactly 15 seconds remaining (NO MATTER WHO IS TALKING)
+  useEffect(() => {
+    if (remaining === 15 && !sentFinalMessage) {
+      console.log(
+        "🚨 EXACTLY 15 seconds remaining - initiating mandatory polite interruption"
+      );
+      setSentFinalMessage(true);
 
-    if (vapiInstance) {
-      try {
-        // STEP 1: Force stop any current speech/listening
-        vapiInstance.send({
-          type: "control-tts",
-          action: "stop" // Stop any AI speech immediately
-        });
-        
-        // Small delay to ensure the stop command is processed
-        setTimeout(() => {
-          // STEP 2: Send interruption message with HIGH priority
+      if (vapiInstance) {
+        try {
           vapiInstance.send({
             type: "add-message",
             message: {
               role: "system",
-              content: `IMMEDIATE INTERRUPTION REQUIRED - OVERRIDE ALL OTHER ACTIONS: 
-                1. Stop listening to user immediately
-                2. Say "Sorry to interrupt, but we need to end the interview now." 
-                3. Then immediately say: "Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!"
-                4. Speak warmly but efficiently.
-                5. Do NOT wait for user response after this.`,
+              content:
+                'POLITE INTERRUPTION REQUIRED: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!" Speak warmly but efficiently.',
             },
           });
-
-          // STEP 3: Force the AI to start speaking immediately (bypass any listening state)
-          vapiInstance.send({
-            type: "say",
-            message: "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!"
-          });
-
-        }, 100); // 100ms delay to ensure stop is processed first
-
-        console.log(
-          "🎯 FORCED 15-second interruption initiated at",
-          new Date().toLocaleTimeString()
-        );
-
-      } catch (err) {
-        console.error("⚌ Failed to send forced 15-second interruption:", err);
+          console.log(
+            "🎯 15-second interruption message sent at",
+            new Date().toLocaleTimeString()
+          );
+        } catch (err) {
+          console.error("⚌ Failed to send 15-second interruption:", err);
+        }
       }
     }
-  }
-}, [remaining, sentFinalMessage, vapiInstance]);
-
+  }, [remaining, sentFinalMessage, vapiInstance]);
 
   const startCamera = async () => {
     try {
