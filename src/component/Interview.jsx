@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import botImage from "../assets/botImage.png"; // small DP for assistant bubbles
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
 
 import { useLocation } from "react-router-dom";
 
@@ -22,13 +22,11 @@ const InterviewBot = () => {
   // const [needsWrapUp, setNeedsWrapUp] = useState(false);
   const [sentFinalMessage, setSentFinalMessage] = useState(false);
   // const [lastQuestionTime, setLastQuestionTime] = useState(null);
-//   const [sentPreClose, setSentPreClose] = useState(false);
+  //   const [sentPreClose, setSentPreClose] = useState(false);
 
-//   const [finalAnswerDetected, setFinalAnswerDetected] = useState(false);
-// const [closingSent, setClosingSent] = useState(false);
-// const [noQuestionsRuleApplied, setNoQuestionsRuleApplied] = useState(false);
-
-  
+  //   const [finalAnswerDetected, setFinalAnswerDetected] = useState(false);
+  // const [closingSent, setClosingSent] = useState(false);
+  // const [noQuestionsRuleApplied, setNoQuestionsRuleApplied] = useState(false);
 
   // Default title
 
@@ -188,45 +186,74 @@ const InterviewBot = () => {
     };
   }, [assistantId]);
 
-// ============= 1-MINUTE RED TOAST ALERT =============
-// 🔔 Show red toast exactly at 60 seconds remaining
-useEffect(() => {
-  if (remaining === 60) {
-    console.log("⏰ EXACTLY 60 seconds remaining - showing red toast alert");
-    
-    // Show red toast notification
-    toast.error("Alert! Last one minute remaining", {
-      duration: 5000,
-      style: {
-        background: '#ef4444',
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: '16px'
-      },
-      icon: '⚠️'
-    });
-  }
-}, [remaining]);
+  // ============= 1-MINUTE RED TOAST ALERT =============
+  // 🔔 Show red toast exactly at 60 seconds remaining
+  useEffect(() => {
+    if (remaining === 60) {
+      console.log("⏰ EXACTLY 60 seconds remaining - showing red toast alert");
 
-// ============= 15-SECOND MANDATORY INTERRUPTION =============
-// 🚨 Interrupt gracefully at exactly 15 seconds remaining (NO MATTER WHO IS TALKING)
+      // Show red toast notification
+      toast.error("Alert! Last one minute remaining", {
+        duration: 5000,
+        style: {
+          background: "#ef4444",
+          color: "white",
+          fontWeight: "bold",
+          fontSize: "16px",
+        },
+        icon: "⚠️",
+      });
+    }
+  }, [remaining]);
+
+ // ============= 15-SECOND MANDATORY INTERRUPTION =============
+// 🚨 FORCEFULLY interrupt at exactly 15 seconds remaining (NO MATTER WHO IS TALKING)
 useEffect(() => {
   if (remaining === 15 && !sentFinalMessage) {
-    console.log("🚨 EXACTLY 15 seconds remaining - initiating mandatory polite interruption");
+    console.log(
+      "🚨 EXACTLY 15 seconds remaining - initiating FORCED interruption"
+    );
     setSentFinalMessage(true);
-    
+
     if (vapiInstance) {
       try {
+        // STEP 1: Force stop any current speech/listening
         vapiInstance.send({
-          type: 'add-message',
-          message: {
-            role: 'system',
-            content: 'POLITE/harsh INTERRUPTION REQUIRED: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time today. This concludes our interview. We will review your responses and get back to you soon. Have a great day!" Speak warmly but efficiently.'
-          }
+          type: "control-tts",
+          action: "stop" // Stop any AI speech immediately
         });
-        console.log("🎯 15-second interruption message sent at", new Date().toLocaleTimeString());
+        
+        // Small delay to ensure the stop command is processed
+        setTimeout(() => {
+          // STEP 2: Send interruption message with HIGH priority
+          vapiInstance.send({
+            type: "add-message",
+            message: {
+              role: "system",
+              content: `IMMEDIATE INTERRUPTION REQUIRED - OVERRIDE ALL OTHER ACTIONS: 
+                1. Stop listening to user immediately
+                2. Say "Sorry to interrupt, but we need to end the interview now." 
+                3. Then immediately say: "Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!"
+                4. Speak warmly but efficiently.
+                5. Do NOT wait for user response after this.`,
+            },
+          });
+
+          // STEP 3: Force the AI to start speaking immediately (bypass any listening state)
+          vapiInstance.send({
+            type: "say",
+            message: "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!"
+          });
+
+        }, 100); // 100ms delay to ensure stop is processed first
+
+        console.log(
+          "🎯 FORCED 15-second interruption initiated at",
+          new Date().toLocaleTimeString()
+        );
+
       } catch (err) {
-        console.error("⚌ Failed to send 15-second interruption:", err);
+        console.error("⚌ Failed to send forced 15-second interruption:", err);
       }
     }
   }
@@ -454,8 +481,9 @@ useEffect(() => {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-className="relative w-full max-w-5xl bg-white border-[3px] border-[#00adb5]/40 rounded-3xl shadow-sm
-            max-h-[92svh] overflow-hidden"      >
+        className="relative w-full max-w-5xl bg-white border-[3px] border-[#00adb5]/40 rounded-3xl shadow-sm
+            max-h-[92svh] overflow-auto md:overflow-hidden"
+      >
         {/* ⏱️ Timer top-right */}
         {remaining !== null && (
           <div className="absolute top-3 right-3">
@@ -493,10 +521,10 @@ className="relative w-full max-w-5xl bg-white border-[3px] border-[#00adb5]/40 r
 
             {/* Chat area — fixed height, scrolls internally to avoid layout shifts */}
             <div
-  ref={chatRef}
-  className="overflow-auto pr-1
+              ref={chatRef}
+              className="overflow-auto pr-1
              h-[48svh] md:h-[22rem] lg:h-[24rem]"
->
+            >
               {/* Render final messages in order */}
               <ul className="space-y-3">
                 {chat.map((m) => {
@@ -563,25 +591,27 @@ className="relative w-full max-w-5xl bg-white border-[3px] border-[#00adb5]/40 r
             </div>
           </div>
 
-          {/* RIGHT: Camera (unchanged) */}
-          <div
-            className="p-6 md:p-8 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none
-                          border-t md:border-t-0 border-[#00adb5]/20"
-          >
+
+          {/* RIGHT: Camera (unchanged) */}{" "}
+          <div className="p-6 md:p-8 bg-white rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none border-t md:border-t-0 border-[#00adb5]/20">
+            {" "}
             <div className="rounded-xl overflow-hidden border border-[#00adb5]/30 bg-white">
+              {" "}
               <div className="bg-[#00adb5] text-white text-sm px-3 py-2">
-                Camera Preview
-              </div>
-              <div className="w-full bg-white" style={{ height: "28rem" }}>
+                {" "}
+                Camera Preview{" "}
+              </div>{" "}
+<div className="w-full bg-white h-[40svh] md:h-[28rem]">
+                {" "}
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
                   className="w-full h-full object-cover"
-                ></video>
-              </div>
-            </div>
+                ></video>{" "}
+              </div>{" "}
+            </div>{" "}
           </div>
         </div>
       </motion.div>
