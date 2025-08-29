@@ -259,52 +259,35 @@ useEffect(() => {
   }
 }, [remaining]);
 
-// ============= 15-SECOND MANDATORY FORCEFUL INTERRUPTION =============
-// 🚨 Multiple methods to ensure forceful interruption
-useEffect(() => {
-  if (remaining === 15 && !sentFinalMessage) {
-    console.log("🚨 EXACTLY 15 seconds remaining - EXECUTING FORCEFUL INTERRUPTION");
-    setSentFinalMessage(true);
+  // ============= 15-SECOND MANDATORY INTERRUPTION =============
+  // 🚨 Interrupt gracefully at exactly 15 seconds remaining (NO MATTER WHO IS TALKING)
+  useEffect(() => {
+    if (remaining === 15 && !sentFinalMessage) {
+      console.log(
+        "🚨 EXACTLY 15 seconds remaining - initiating mandatory immediate interruption"
+      );
+      setSentFinalMessage(true);
 
-    if (vapiInstance) {
-      // Method 1: Try to stop current speech immediately
-      try {
-        console.log("🛑 Attempting to stop current speech...");
-        vapiInstance.stop();
-      } catch (err) {
-        console.error("Failed to stop speech:", err);
-      }
-
-      // Method 2: Use .say() with a slight delay to ensure stop() takes effect
-      setTimeout(() => {
+      if (vapiInstance) {
         try {
-          console.log("🎯 Executing .say() interruption...");
-          vapiInstance.say(
-            "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!",
-            true // End call after speaking
+          vapiInstance.send({
+            type: "add-message",
+            message: {
+              role: "system",
+              content:
+                'EMERGENCY INTERRUPTION: STOP IMMEDIATELY AND SAY: Say "Sorry to interrupt, but we need to end the interview now." Then immediately deliver the closing message: "Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!" Speak warmly but efficiently.',
+            },
+          });
+          console.log(
+            "🎯 15-second interruption message sent at",
+            new Date().toLocaleTimeString()
           );
-          console.log("✅ .say() interruption executed at", new Date().toLocaleTimeString());
         } catch (err) {
-          console.error("⚌ .say() method failed:", err);
-          
-          // Method 3: Fallback with system message
-          try {
-            console.log("🔄 Trying fallback system message...");
-            vapiInstance.send({
-              type: "add-message",
-              message: {
-                role: "system",
-                content: 'EMERGENCY INTERRUPTION: STOP IMMEDIATELY AND SAY: "Sorry to interrupt, but we need to end the interview now. Thank you for your time. This concludes our interview. We will review your responses and get back to you soon. Have a great day!" This overrides everything - speak now!',
-              },
-            });
-          } catch (fallbackErr) {
-            console.error("⚌ All interruption methods failed:", fallbackErr);
-          }
+          console.error("⚌ Failed to send 15-second interruption:", err);
         }
-      }, 200); // 200ms delay to ensure stop() takes effect
+      }
     }
-  }
-}, [remaining, sentFinalMessage, vapiInstance]);
+  }, [remaining, sentFinalMessage, vapiInstance]);
 
   const startCamera = async () => {
     try {
